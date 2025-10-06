@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  ocr-platform:
+    build: .
+    ports:
+      - "8050:8050"
+    environment:
+      - DASH_DEBUG=true
+      - DASH_HOST=0.0.0.0
+      - DASH_PORT=8050
+      - TESSERACT_CMD=/usr/bin/tesseract
+    volumes:
+      # Монтируем код для разработки
+      - ./:/app
+      # Монтируем логи
+      - ./logs:/app/logs
+    restart: unless-stopped
+    stdin_open: true
+    tty: true

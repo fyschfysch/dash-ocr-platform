@@ -1,0 +1,40 @@
+# OCR Platform Dependencies
+# Основные библиотеки для веб-интерфейса
+dash=2.14.0
+dash-bootstrap-components=1.5.0
+plotly=5.17.0
+
+# Обработка изображений и OCR
+Pillow=10.0.0
+opencv-python=4.8.0
+pytesseract=0.3.10
+
+# Работа с PDF
+PyMuPDF=1.23.0
+
+# Работа с данными
+numpy=1.24.0
+pandas=2.1.0
+
+# Дополнительные утилиты
+python-dateutil=2.8.2
+
+# Веб-сервер и HTTP
+Flask=2.3.0
+Werkzeug=2.3.0
+
+# Дополнительные библиотеки для обработки текста (опционально)
+# pymorphy2=0.9.1  # для морфологического анализа (будущие возможности)
+# spacy=3.6.0      # для продвинутой обработки текста
+
+# Утилиты для разработки (опционально)
+# pytest=7.0.0     # для тестирования
+# black=23.0.0      # для форматирования кода
+# flake8=6.0.0      # для проверки стиля кода
+
+# Системные требования
+# Python = 3.8
+# Tesseract OCR (установить отдельно)
+#   Windows httpsgithub.comUB-Mannheimtesseractwiki
+#   Ubuntu sudo apt install tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
+#   MacOS brew install tesseract tesseract-lang

@@ -1,0 +1,30 @@
+/* Стили для печати результатов */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    .result-card {
+        box-shadow: none;
+        border: 1px solid #000;
+        break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    body {
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    h1, h2, h3 {
+        color: #000 !important;
+    }
+    
+    .table {
+        font-size: 10pt;
+    }
+    
+    .page-break {
+        page-break-before: always;
+    }
+}
