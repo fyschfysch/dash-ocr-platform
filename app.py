@@ -1,14 +1,9 @@
 """
 🔍 OCR Платформа для документов
-Главная точка входа в приложение
+Главная точка входа в приложение (Dash 3.0+ совместимый)
 
 Система распознавания документов о переподготовке и повышении квалификации
 с интерактивной разметкой полей для новых типов документов.
-
-Поддерживаемые организации:
-- 1Т (удостоверения и дипломы)
-- РОСНОУ (удостоверения и дипломы) 
-- Финансовый университет (удостоверения 2 варианта)
 """
 
 import os
@@ -23,7 +18,6 @@ PROJECT_ROOT = Path(__file__).parent.absolute()
 CORE_PATH = PROJECT_ROOT / 'core'
 WEB_PATH = PROJECT_ROOT / 'web'
 
-# Добавляем пути к модулям
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(CORE_PATH))
 sys.path.insert(0, str(WEB_PATH))
@@ -42,33 +36,32 @@ logger = logging.getLogger(__name__)
 
 
 def check_dependencies():
-    """
-    Проверка наличия всех необходимых зависимостей
-    """
+    """Проверка наличия всех необходимых зависимостей"""
     required_packages = [
-        'dash', 'dash_bootstrap_components', 'plotly',
-        'PIL', 'cv2', 'numpy', 'pandas',
-        'pytesseract', 'fitz', 're', 'json'
+        ('dash', 'dash'), ('dash_bootstrap_components', 'dash_bootstrap_components'),
+        ('plotly', 'plotly'), ('PIL', 'PIL'), ('cv2', 'cv2'), 
+        ('numpy', 'numpy'), ('pandas', 'pandas'), ('pytesseract', 'pytesseract'), 
+        ('fitz', 'fitz'), ('re', 're'), ('json', 'json')
     ]
     
     missing_packages = []
     
-    for package in required_packages:
+    for package_name, import_name in required_packages:
         try:
-            if package == 'PIL':
+            if import_name == 'PIL':
                 from PIL import Image
-            elif package == 'cv2':
+            elif import_name == 'cv2':
                 import cv2
-            elif package == 'fitz':
+            elif import_name == 'fitz':
                 import fitz
             else:
-                __import__(package)
+                __import__(import_name)
             
-            logger.debug(f"✅ {package} - OK")
+            logger.debug(f"✅ {package_name} - OK")
             
         except ImportError as e:
-            missing_packages.append(package)
-            logger.error(f"❌ {package} - НЕ НАЙДЕН: {e}")
+            missing_packages.append(package_name)
+            logger.error(f"❌ {package_name} - НЕ НАЙДЕН: {e}")
     
     if missing_packages:
         logger.error(f"Отсутствуют пакеты: {missing_packages}")
@@ -80,23 +73,13 @@ def check_dependencies():
 
 
 def find_tesseract():
-    """
-    Автоматический поиск Tesseract в системе
-    """
+    """Автоматический поиск Tesseract в системе"""
     possible_paths = [
-        # Windows
         r"C:\Program Files\Tesseract-OCR\tesseract.exe",
         r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-        r"C:\Users\{}\AppData\Local\Programs\Tesseract-OCR\tesseract.exe".format(
-            os.environ.get('USERNAME', '')
-        ),
-        
-        # Linux/Mac
         "/usr/bin/tesseract",
         "/usr/local/bin/tesseract",
         "/opt/homebrew/bin/tesseract",
-        
-        # Путь из переменной окружения
         os.environ.get('TESSERACT_PATH', '')
     ]
     
@@ -105,7 +88,6 @@ def find_tesseract():
             logger.info(f"✅ Tesseract найден: {path}")
             return path
     
-    # Попробуем найти через which/where
     import shutil
     tesseract_path = shutil.which('tesseract')
     if tesseract_path:
@@ -113,19 +95,14 @@ def find_tesseract():
         return tesseract_path
     
     logger.warning("⚠️ Tesseract не найден автоматически")
-    logger.warning("Укажите путь через переменную TESSERACT_PATH или параметр --tesseract-path")
     return None
 
 
 def validate_project_structure():
-    """
-    Проверка структуры проекта
-    """
+    """Проверка структуры проекта"""
     required_files = [
-        'core/ocr_engine.py',
-        'core/config.py', 
-        'web/dashboard.py',
-        'web/markup_tool.py'
+        'core/ocr_engine.py', 'core/config.py', 
+        'web/dashboard.py', 'web/markup_tool.py'
     ]
     
     missing_files = []
@@ -143,39 +120,8 @@ def validate_project_structure():
     return True
 
 
-def create_requirements_file():
-    """
-    Создание файла requirements.txt
-    """
-    requirements = """# OCR Platform Dependencies
-dash>=2.14.0
-dash-bootstrap-components>=1.5.0
-plotly>=5.17.0
-Pillow>=10.0.0
-opencv-python>=4.8.0
-numpy>=1.24.0
-pandas>=2.1.0
-pytesseract>=0.3.10
-PyMuPDF>=1.23.0
-python-dateutil>=2.8.2
-
-# Optional: для работы с морфологией (будущие возможности)
-# pymorphy2>=0.9.1
-"""
-    
-    req_file = PROJECT_ROOT / 'requirements.txt'
-    if not req_file.exists():
-        with open(req_file, 'w', encoding='utf-8') as f:
-            f.write(requirements)
-        logger.info(f"✅ Создан файл {req_file}")
-    
-    return req_file
-
-
 def print_startup_info():
-    """
-    Вывод информации о запуске
-    """
+    """Вывод информации о запуске"""
     print("=" * 80)
     print("🔍 OCR ПЛАТФОРМА ДЛЯ РАСПОЗНАВАНИЯ СТРУКТУРИРОВАННЫХ ПОЛЕЙ ДОКУМЕНТОВ")
     print("=" * 80)
@@ -203,91 +149,38 @@ def print_startup_info():
 
 
 def main():
-    """
-    Главная функция приложения
-    """
+    """Главная функция приложения"""
     parser = argparse.ArgumentParser(
-        description='🔍 OCR Платформа для документов',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Примеры использования:
-  python app.py                                    # Запуск с автопоиском Tesseract
-  python app.py --port 8080                       # Запуск на порту 8080
-  python app.py --tesseract-path /path/to/tesseract # Указание пути к Tesseract
-  python app.py --host 0.0.0.0 --port 80         # Запуск для внешнего доступа
-        """
+        description='🔍 OCR Платформа для документов (Dash 3.0+)',
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    parser.add_argument(
-        '--host', 
-        default='127.0.0.1',
-        help='IP адрес для запуска сервера (по умолчанию: 127.0.0.1)'
-    )
-    
-    parser.add_argument(
-        '--port', 
-        type=int, 
-        default=8050,
-        help='Порт для запуска сервера (по умолчанию: 8050)'
-    )
-    
-    parser.add_argument(
-        '--debug', 
-        action='store_true',
-        help='Запуск в режиме отладки'
-    )
-    
-    parser.add_argument(
-        '--tesseract-path',
-        help='Путь к исполняемому файлу Tesseract'
-    )
-    
-    parser.add_argument(
-        '--create-requirements',
-        action='store_true',
-        help='Создать файл requirements.txt и выйти'
-    )
-    
-    parser.add_argument(
-        '--check-only',
-        action='store_true',
-        help='Только проверить зависимости и выйти'
-    )
+    parser.add_argument('--host', default='127.0.0.1',
+                       help='IP адрес для запуска сервера')
+    parser.add_argument('--port', type=int, default=8050,
+                       help='Порт для запуска сервера')
+    parser.add_argument('--debug', action='store_true',
+                       help='Запуск в режиме отладки')
+    parser.add_argument('--tesseract-path',
+                       help='Путь к исполняемому файлу Tesseract')
     
     args = parser.parse_args()
     
-    # Создание requirements.txt
-    if args.create_requirements:
-        req_file = create_requirements_file()
-        print(f"✅ Создан файл: {req_file}")
-        print("📦 Установите зависимости командой: pip install -r requirements.txt")
-        return
-    
     # Проверка структуры проекта
     if not validate_project_structure():
-        logger.error("❌ Проблемы со структурой проекта. Проверьте наличие всех файлов.")
+        logger.error("❌ Проблемы со структурой проекта")
         sys.exit(1)
     
     # Проверка зависимостей
     if not check_dependencies():
         logger.error("❌ Отсутствуют необходимые пакеты")
-        req_file = create_requirements_file()
-        print(f"📦 Установите зависимости: pip install -r {req_file}")
         sys.exit(1)
-    
-    # Только проверка
-    if args.check_only:
-        logger.info("✅ Все проверки пройдены успешно")
-        return
     
     # Поиск Tesseract
     tesseract_path = args.tesseract_path or find_tesseract()
     if not tesseract_path:
         logger.error("❌ Tesseract не найден!")
-        logger.error("Установите Tesseract OCR:")
-        logger.error("  Windows: https://github.com/UB-Mannheim/tesseract/wiki")
-        logger.error("  Ubuntu: sudo apt install tesseract-ocr tesseract-ocr-rus")
-        logger.error("  MacOS: brew install tesseract tesseract-lang")
+        logger.error("Установите Tesseract OCR и укажите путь через --tesseract-path")
         sys.exit(1)
     
     # Вывод информации о запуске
@@ -316,7 +209,6 @@ def main():
         
     except ImportError as e:
         logger.error(f"❌ Ошибка импорта модулей: {e}")
-        logger.error("Проверьте структуру проекта и установку зависимостей")
         sys.exit(1)
         
     except Exception as e:
