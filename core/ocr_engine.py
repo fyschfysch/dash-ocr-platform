@@ -3,11 +3,12 @@ OCR движок с Tesseract для распознавания документ
 """
 
 import pytesseract
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
 import cv2
 import numpy as np
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List
 import os
+import io
 
 
 class ImageProcessor:
@@ -24,7 +25,7 @@ class ImageProcessor:
         self.max_dimension = max_dimension
         self.dpi = dpi
     
-    def convert_pdf_to_images(self, pdf_path: str):
+    def convert_pdf_to_images(self, pdf_path: str) -> List[Image.Image]:
         """
         Конвертация PDF в список изображений
         
@@ -35,13 +36,38 @@ class ImageProcessor:
             List[Image.Image]: Список изображений страниц
         """
         import fitz
-        import io
         
         if not os.path.exists(pdf_path):
             raise FileNotFoundError(f"Файл {pdf_path} не найден")
         
         images = []
         pdf_document = fitz.open(pdf_path)
+        
+        for page_num in range(len(pdf_document)):
+            page = pdf_document.load_page(page_num)
+            mat = fitz.Matrix(self.dpi/72, self.dpi/72)
+            pix = page.get_pixmap(matrix=mat)
+            img_data = pix.tobytes("ppm")
+            img = Image.open(io.BytesIO(img_data))
+            images.append(img)
+        
+        pdf_document.close()
+        return images
+    
+    def convert_pdf_from_bytes(self, pdf_bytes: bytes) -> List[Image.Image]:
+        """
+        Конвертация PDF из байтов в список изображений
+        
+        Args:
+            pdf_bytes: PDF файл в виде байтов
+            
+        Returns:
+            List[Image.Image]: Список изображений страниц
+        """
+        import fitz
+        
+        images = []
+        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
         
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
@@ -89,6 +115,27 @@ class ImageProcessor:
         img = enhancer.enhance(1.2)
         
         enhancer = ImageEnhance.Sharpness(img)
+        img = enhancer.enhance(1.1)
+        
+        return img
+    
+    def enhance_image_advanced(self, img: Image.Image) -> Image.Image:
+        """
+        Расширенное улучшение качества изображения
+        
+        Args:
+            img: Исходное изображение
+            
+        Returns:
+            Image.Image: Улучшенное изображение
+        """
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.3)
+        
+        enhancer = ImageEnhance.Sharpness(img)
+        img = enhancer.enhance(1.2)
+        
+        enhancer = ImageEnhance.Brightness(img)
         img = enhancer.enhance(1.1)
         
         return img
@@ -315,5 +362,49 @@ class DocumentProcessor:
             else:
                 result[field_name] = text
         
-        result['_uncertainties'] = uncertainties
+        result['uncertainties'] = uncertainties
         return result
+    
+    def display_image_with_boxes(self, img: Image.Image, fields: List[Dict]) -> Image.Image:
+        """
+        Отображение изображения с рамками полей
+        
+        Args:
+            img: Исходное изображение
+            fields: Список полей с координатами
+            
+        Returns:
+            Image.Image: Изображение с нарисованными рамками
+        """
+        img_copy = img.copy()
+        draw = ImageDraw.Draw(img_copy)
+        
+        colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan']
+        
+        for i, field_config in enumerate(fields):
+            box = field_config.get('box')
+            field_name = field_config.get('name', '')
+            
+            if box:
+                color = colors[i % len(colors)]
+                draw.rectangle(box, outline=color, width=3)
+                
+                try:
+                    draw.text((box[0], box[1] - 15), field_name, fill=color)
+                except:
+                    pass
+        
+        return img_copy
+    
+    def crop_field_thumbnail(self, img: Image.Image, box: Tuple[int, int, int, int]) -> Image.Image:
+        """
+        Вырезание миниатюры поля
+        
+        Args:
+            img: Исходное изображение
+            box: Координаты области
+            
+        Returns:
+            Image.Image: Миниатюра поля
+        """
+        return img.crop(box)

@@ -198,3 +198,42 @@ def get_config(config_key: str) -> DocumentConfig:
         available = list(DOCUMENT_CONFIGS.keys())
         raise ValueError(f"Неподдерживаемый тип: {config_key}. Доступные: {available}")
     return DOCUMENT_CONFIGS[config_key]
+
+
+def get_available_configs() -> List[Dict[str, str]]:
+    """
+    Получение списка доступных конфигураций для Dashboard
+    
+    Returns:
+        List[Dict]: Список словарей с информацией о конфигурациях
+    """
+    configs = []
+    for config_id, config in DOCUMENT_CONFIGS.items():
+        configs.append({
+            'id': config_id,
+            'name': config.name,
+            'organization': config.organization,
+            'document_type': config.document_type
+        })
+    return configs
+
+
+def get_field_description(field_name: str) -> str:
+    """
+    Получение описания поля для отображения в интерфейсе
+    
+    Args:
+        field_name: Имя поля
+        
+    Returns:
+        str: Человекочитаемое описание поля
+    """
+    descriptions = {
+        'full_name': 'ФИО',
+        'series': 'Серия',
+        'number': 'Номер',
+        'series_and_number': 'Серия и номер',
+        'registration_number': 'Регистрационный номер',
+        'issue_date': 'Дата выдачи'
+    }
+    return descriptions.get(field_name, field_name)
