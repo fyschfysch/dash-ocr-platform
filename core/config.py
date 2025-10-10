@@ -30,16 +30,19 @@ class UncertaintyEngine:
             '1T': {
                 'min_reg_digits': 4,
                 'min_name_length': 5,
+                'min_series_length': 2,
                 'min_number_length': 4
             },
             'ROSNOU': {
                 'min_reg_digits': 3,
                 'min_name_length': 8,
+                'min_series_length': 2,
                 'min_number_length': 6
             },
             'FINUNIVERSITY': {
                 'min_reg_digits': 4,
                 'min_name_length': 8,
+                'min_series_length': 2,
                 'min_number_length': 8
             }
         }
@@ -59,10 +62,18 @@ class UncertaintyEngine:
         elif field_name == 'full_name':
             return len(str(parsed_result).strip()) < config.get('min_name_length', 5)
         
+        elif field_name == 'series':
+            return len(str(parsed_result).strip()) < config.get('min_series_length', 2)
+        
+        elif field_name == 'number':
+            return len(str(parsed_result).strip()) < config.get('min_number_length', 4)
+        
         elif field_name == 'series_and_number':
             if isinstance(parsed_result, tuple) and len(parsed_result) >= 2:
+                series_length = len(str(parsed_result[0]))
                 number_length = len(str(parsed_result[1]))
-                return number_length < config.get('min_number_length', 4)
+                return (series_length < config.get('min_series_length', 2) or 
+                       number_length < config.get('min_number_length', 4))
         
         return False
 
@@ -84,12 +95,14 @@ DOCUMENT_CONFIGS = {
         document_type='certificate',
         fields=[
             {'name': 'full_name', 'box': (630, 280, 1150, 320)},
-            {'name': 'series_and_number', 'box': (207, 503, 380, 536)},
+            {'name': 'series', 'box': (207, 503, 270, 536)},
+            {'name': 'number', 'box': (280, 503, 380, 536)},
             {'name': 'registration_number', 'box': (320, 725, 425, 755)},
             {'name': 'issue_date', 'box': (150, 750, 440, 785)}
         ],
         patterns={
-            'series_and_number': OneTParsers.parse_series_number,
+            'series': OneTParsers.parse_series_only,
+            'number': OneTParsers.parse_number_only,
             'registration_number': OneTParsers.parse_reg_number,
             'issue_date': OneTParsers.parse_date_certificate
         },
@@ -102,12 +115,14 @@ DOCUMENT_CONFIGS = {
         document_type='diploma',
         fields=[
             {'name': 'full_name', 'box': (695, 262, 1120, 295)},
-            {'name': 'series_and_number', 'box': (240, 535, 355, 570)},
+            {'name': 'series', 'box': (240, 535, 290, 570)},
+            {'name': 'number', 'box': (295, 535, 355, 570)},
             {'name': 'registration_number', 'box': (315, 725, 430, 760)},
             {'name': 'issue_date', 'box': (200, 570, 410, 600)}
         ],
         patterns={
-            'series_and_number': OneTParsers.parse_series_number,
+            'series': OneTParsers.parse_series_only,
+            'number': OneTParsers.parse_number_only,
             'registration_number': OneTParsers.parse_reg_number,
             'issue_date': OneTParsers.parse_date_diploma
         },
