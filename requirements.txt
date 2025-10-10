@@ -1,19 +1,25 @@
-# OCR Platform Dependencies для Dash 3.0+
-dash>=3.0.0
+# OCR Платформа - Зависимости
+# Python 3.8+
+
+# Dash Framework
+dash>=2.14.0
 dash-bootstrap-components>=1.5.0
 plotly>=5.17.0
 
-# Обработка изображений и OCR
+# Обработка изображений
 Pillow>=10.0.0
 opencv-python>=4.8.0
-pytesseract>=0.3.10
+numpy>=1.24.0
 
-# Работа с PDF
+# PDF обработка
 PyMuPDF>=1.23.0
 
-# Работа с данными
-numpy>=1.24.0
-pandas>=2.1.0
+# OCR
+pytesseract>=0.3.10
 
-# Дополнительные утилиты
-python-dateutil>=2.8.2
+# Работа с данными
+pandas>=2.0.0
+
+# Опциональные зависимости для production
+gunicorn>=21.2.0
+python-dotenv>=1.0.0

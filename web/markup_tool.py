@@ -1,6 +1,6 @@
 """
 Продвинутый инструмент интерактивной разметки полей документов
-с визуальным выделением областей и сохранением конфигураций
+Обновлено: исправлены имена полей для совместимости с системой
 """
 
 import dash
@@ -25,32 +25,30 @@ class MarkupTool:
     """
     
     def __init__(self):
+        # ИСПРАВЛЕНО: используем правильные имена полей с подчеркиванием
         self.default_fields = [
-            {'name': 'fullname', 'display_name': 'ФИО'},
+            {'name': 'full_name', 'display_name': 'ФИО'},
             {'name': 'series', 'display_name': 'Серия'},
             {'name': 'number', 'display_name': 'Номер'},
-            {'name': 'seriesandnumber', 'display_name': 'Серия и номер'},
-            {'name': 'registrationnumber', 'display_name': 'Регистрационный номер'},
-            {'name': 'issuedate', 'display_name': 'Дата выдачи'}
+            {'name': 'series_and_number', 'display_name': 'Серия и номер'},
+            {'name': 'registration_number', 'display_name': 'Регистрационный номер'},
+            {'name': 'issue_date', 'display_name': 'Дата выдачи'}
         ]
         
         self.colors = {
-            'fullname': '#FF6B6B',
+            'full_name': '#FF6B6B',
             'series': '#4ECDC4',
             'number': '#45B7D1',
-            'seriesandnumber': '#96CEB4',
-            'registrationnumber': '#FFEAA7',
-            'issuedate': '#DFE6E9'
+            'series_and_number': '#96CEB4',
+            'registration_number': '#FFEAA7',
+            'issue_date': '#DFE6E9'
         }
         
-        logger.info("MarkupTool инициализирован")
+        logger.info("MarkupTool инициализирован с корректными именами полей")
     
     def create_markup_layout(self) -> html.Div:
-        """
-        Создание полного layout для разметки
-        """
+        """Создание полного layout для разметки"""
         return html.Div([
-            # Заголовок
             dbc.Alert([
                 html.H4([
                     html.I(className="fas fa-crosshairs me-2"),
@@ -59,7 +57,6 @@ class MarkupTool:
                 html.P("Создайте новую конфигурацию или отредактируйте существующую", className="mb-0")
             ], color="info", className="mb-4"),
             
-            # Панель настроек конфигурации
             dbc.Card([
                 dbc.CardHeader("Шаг 1: Настройка конфигурации", className="fw-bold"),
                 dbc.CardBody([
@@ -114,7 +111,6 @@ class MarkupTool:
                 ])
             ], className="mb-4"),
             
-            # Панель загрузки образца
             dbc.Card([
                 dbc.CardHeader("Шаг 2: Загрузка образца документа", className="fw-bold"),
                 dbc.CardBody([
@@ -138,16 +134,14 @@ class MarkupTool:
                 ])
             ], className="mb-4"),
             
-            # Панель с изображением для разметки
             html.Div(id='markup-image-panel', className="mb-4"),
             
-            # Панель редактирования полей
             dbc.Card([
                 dbc.CardHeader("Шаг 3: Разметка полей", className="fw-bold"),
                 dbc.CardBody([
                     html.P([
                         html.I(className="fas fa-info-circle me-2"),
-                        "Введите координаты полей вручную или используйте графический редактор для точного выделения"
+                        "Введите координаты полей вручную. Координаты указываются для изображения с разрешением 300 DPI, масштабированного до макс. 1200px"
                     ], className="text-muted small"),
                     
                     html.Div(id='markup-fields-list'),
@@ -159,10 +153,8 @@ class MarkupTool:
                 ])
             ], className="mb-4"),
             
-            # Панель предпросмотра
             html.Div(id='markup-preview-panel', className="mb-4"),
             
-            # Панель действий
             dbc.Card([
                 dbc.CardHeader("Шаг 4: Сохранение конфигурации", className="fw-bold"),
                 dbc.CardBody([
@@ -174,11 +166,6 @@ class MarkupTool:
                             ], id='preview-config-btn', color="info", className="me-2"),
                             
                             dbc.Button([
-                                html.I(className="fas fa-save me-2"),
-                                "Сохранить конфигурацию"
-                            ], id='save-config-btn', color="success", className="me-2"),
-                            
-                            dbc.Button([
                                 html.I(className="fas fa-download me-2"),
                                 "Экспортировать JSON"
                             ], id='export-config-btn', color="primary")
@@ -187,29 +174,25 @@ class MarkupTool:
                 ])
             ]),
             
-            # Скрытые хранилища
             dcc.Store(id='markup-image-store'),
             dcc.Store(id='markup-boxes-store', data={}),
             dcc.Store(id='markup-fields-store', data=[]),
             
-            # Модальное окно для экспорта
             dbc.Modal([
                 dbc.ModalHeader("Экспорт конфигурации"),
                 dbc.ModalBody([
-                    html.Pre(id='config-json-display', style={'whiteSpace': 'pre-wrap'})
+                    html.Pre(id='config-json-display', style={'whiteSpace': 'pre-wrap', 'fontSize': '0.85rem'})
                 ]),
                 dbc.ModalFooter([
                     dbc.Button("Скопировать", id='copy-json-btn', color="primary"),
                     dbc.Button("Закрыть", id='close-export-modal', color="secondary")
                 ])
-            ], id='export-modal', size="lg")
+            ], id='export-modal', size="xl", scrollable=True)
         ])
     
     def create_field_editor(self, field_name: str, field_display: str, 
                            box: Optional[Tuple] = None, color: str = '#000000') -> dbc.Card:
-        """
-        Создание редактора для одного поля с визуальными элементами
-        """
+        """Создание редактора для одного поля с визуальными элементами"""
         return dbc.Card([
             dbc.CardBody([
                 dbc.Row([
@@ -295,9 +278,7 @@ class MarkupTool:
         ], className="mb-2")
     
     def draw_boxes_on_image(self, img: Image.Image, boxes: Dict[str, Tuple]) -> Image.Image:
-        """
-        Отрисовка рамок полей на изображении
-        """
+        """Отрисовка рамок полей на изображении"""
         img_with_boxes = img.copy()
         draw = ImageDraw.Draw(img_with_boxes)
         
@@ -312,10 +293,8 @@ class MarkupTool:
             
             color = self.colors.get(field_name, '#000000')
             
-            # Рисуем рамку
             draw.rectangle(box, outline=color, width=3)
             
-            # Рисуем подпись
             field_display = next(
                 (f['display_name'] for f in self.default_fields if f['name'] == field_name),
                 field_name
@@ -323,74 +302,55 @@ class MarkupTool:
             
             text_x, text_y = box[0], max(0, box[1] - 25)
             
-            # Фон для текста
-            text_bbox = draw.textbbox((text_x, text_y), field_display, font=font)
-            draw.rectangle(text_bbox, fill=color)
-            
-            # Текст
-            draw.text((text_x, text_y), field_display, fill='white', font=font)
+            try:
+                text_bbox = draw.textbbox((text_x, text_y), field_display, font=font)
+                draw.rectangle(text_bbox, fill=color)
+                draw.text((text_x, text_y), field_display, fill='white', font=font)
+            except:
+                pass
         
         return img_with_boxes
     
     def export_to_config_format(self, config_data: Dict) -> str:
-        """
-        Экспорт в формат конфигурации для config.py
-        """
+        """Экспорт в формат конфигурации для config.py"""
         config_name = config_data.get('name', 'CustomConfig')
         org = config_data.get('organization', 'CUSTOM')
         doc_type = config_data.get('document_type', 'custom')
         fields = config_data.get('fields', [])
         
-        # Генерируем Python код
         code = f'''
-def create_{org.lower()}_{doc_type}_config() -> DocumentConfig:
-    """
-    {config_name}
-    Автоматически сгенерировано инструментом разметки
-    Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-    """
-    return DocumentConfig(
-        name="{config_name}",
-        organization="{org}",
-        document_type="{doc_type}",
-        config_id="{org}_{doc_type.upper()}",
-        description="Конфигурация создана через инструмент разметки",
-        fields=[
+# Конфигурация: {config_name}
+# Автоматически сгенерировано инструментом разметки
+# Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+'{org}_{doc_type.upper()}': DocumentConfig(
+    name='{config_name}',
+    organization='{org}',
+    document_type='{doc_type}',
+    fields=[
 '''
         
         for field in fields:
-            code += f'''            {{
-                'name': '{field['name']}',
-                'display_name': '{field['display_name']}',
-                'box': {field['box']},
-                'required': True
-            }},
+            code += f'''        {{'name': '{field['name']}', 'box': {field['box']}}},
 '''
         
-        code += '''        ],
-        patterns={
-            'fullname': CommonParsers.parse_fullname_simple,
-            'seriesandnumber': CommonParsers.parse_series_number,
-            'registrationnumber': lambda x: (x.strip(), False),
-            'issuedate': CommonParsers.parse_date_standard
-        },
-        ocr_params={
-            'scale_factor': 3,
-            'contrast_boost': 1.5,
-            'sharpness_boost': 1.2
-        }
-    )
+        code += '''    ],
+    patterns={{
+        'series_and_number': OneTParsers.parse_series_number,
+        'registration_number': lambda x: (x.strip(), False),
+        'full_name': lambda x: (x.strip(), len(x.strip()) < 5),
+        'issue_date': CommonParsers.parse_date_standard
+    }},
+    ocr_params={{'scale_factor': 3, 'contrast_boost': 1.5}}
+)
 '''
         
         return code
 
 
 def setup_markup_callbacks(app, markup_tool: MarkupTool):
-    """
-    Настройка всех callbacks для инструмента разметки
-    """
+    """Настройка всех callbacks для инструмента разметки"""
     
-    # Callback 1: Загрузка изображения
     @app.callback(
         [Output('markup-image-panel', 'children'),
          Output('markup-image-store', 'data')],
@@ -415,12 +375,10 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             
             img = images[0]
             
-            # Конвертируем в base64
             buffer = io.BytesIO()
             img.save(buffer, format='PNG')
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
-            # Создаем панель с изображением
             panel = dbc.Card([
                 dbc.CardHeader(f"Образец: {filename} (размер: {img.size[0]}×{img.size[1]}px)"),
                 dbc.CardBody([
@@ -435,8 +393,7 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                         }
                     ),
                     html.Small(
-                        "Используйте инструменты ниже для разметки полей. "
-                        "Координаты вводятся вручную (планируется добавление визуального выделения).",
+                        "Координаты указываются для финального размера изображения (после DPI=300 и resize до 1200px).",
                         className="text-muted d-block mt-2"
                     )
                 ])
@@ -448,7 +405,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             logger.error(f"Ошибка загрузки: {e}")
             return html.P(f"Ошибка: {str(e)}", className="text-danger"), None
     
-    # Callback 2: Инициализация полей
     @app.callback(
         [Output('markup-fields-list', 'children'),
          Output('markup-fields-store', 'data')],
@@ -457,7 +413,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
     )
     def initialize_fields(base_config, current_fields):
         if base_config == 'empty':
-            # Пустая конфигурация - используем стандартные поля
             fields = []
             for field_def in markup_tool.default_fields:
                 fields.append({
@@ -466,7 +421,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                     'box': None
                 })
         else:
-            # Загружаем из базовой конфигурации
             try:
                 from core.config import get_config
                 config = get_config(base_config)
@@ -478,10 +432,10 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                         'display_name': field_config.get('display_name', field_config['name']),
                         'box': field_config.get('box')
                     })
-            except:
+            except Exception as e:
+                logger.error(f"Ошибка загрузки базовой конфигурации: {e}")
                 fields = []
         
-        # Создаем редакторы полей
         field_editors = []
         for field in fields:
             editor = markup_tool.create_field_editor(
@@ -494,7 +448,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
         
         return field_editors, fields
     
-    # Callback 3: Предпросмотр конфигурации
     @app.callback(
         Output('markup-preview-panel', 'children'),
         [Input('preview-config-btn', 'n_clicks')],
@@ -511,16 +464,13 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             return html.Div()
         
         try:
-            # Восстанавливаем изображение
             img_data = base64.b64decode(img_b64)
             img = Image.open(io.BytesIO(img_data))
             
-            # Собираем boxes
             boxes = {}
             for i, field_id in enumerate(field_ids):
                 field_name = field_id['field']
-                if x1_values[i] is not None and y1_values[i] is not None and \
-                   x2_values[i] is not None and y2_values[i] is not None:
+                if all(v is not None for v in [x1_values[i], y1_values[i], x2_values[i], y2_values[i]]):
                     boxes[field_name] = (
                         int(x1_values[i]),
                         int(y1_values[i]),
@@ -528,10 +478,8 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                         int(y2_values[i])
                     )
             
-            # Рисуем рамки
             img_with_boxes = markup_tool.draw_boxes_on_image(img, boxes)
             
-            # Конвертируем обратно
             buffer = io.BytesIO()
             img_with_boxes.save(buffer, format='PNG')
             preview_b64 = base64.b64encode(buffer.getvalue()).decode()
@@ -550,7 +498,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             logger.error(f"Ошибка предпросмотра: {e}")
             return dbc.Alert(f"Ошибка: {str(e)}", color="danger")
     
-    # Callback 4: Экспорт конфигурации
     @app.callback(
         [Output('export-modal', 'is_open'),
          Output('config-json-display', 'children')],
@@ -579,7 +526,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             return False, ""
         
         if button_id == 'export-config-btn':
-            # Собираем данные конфигурации
             config_data = {
                 'name': config_name or 'Без названия',
                 'organization': org_name or 'CUSTOM',
@@ -594,8 +540,7 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                     field_name
                 )
                 
-                if x1_values[i] is not None and y1_values[i] is not None and \
-                   x2_values[i] is not None and y2_values[i] is not None:
+                if all(v is not None for v in [x1_values[i], y1_values[i], x2_values[i], y2_values[i]]):
                     config_data['fields'].append({
                         'name': field_name,
                         'display_name': field_display,
@@ -607,7 +552,6 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                         )
                     })
             
-            # Генерируем код Python
             code = markup_tool.export_to_config_format(config_data)
             
             return True, code

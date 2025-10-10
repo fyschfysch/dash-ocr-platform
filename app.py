@@ -129,6 +129,7 @@ class SystemValidator:
             'core/ocr_engine.py': 'OCR движок',
             'core/config.py': 'Конфигурации документов',
             'core/parsers.py': 'Парсеры полей',
+            'core/image_processor.py': 'Процессор изображений',
             'web/dashboard.py': 'Dash интерфейс'
         }
         
@@ -163,7 +164,8 @@ class ConfigurationManager:
             from core.parsers import (
                 OneTParsers, RosNouParsers, FinUnivParsers, CommonParsers
             )
-            from core.ocr_engine import DocumentProcessor, ImageProcessor, OCREngine
+            from core.ocr_engine import DocumentProcessor, OCREngine
+            from core.image_processor import AdvancedImageProcessor
             
             logger.info("Все core модули загружены")
             logger.info(f"Доступно конфигураций: {len(DOCUMENT_CONFIGS)}")
@@ -215,8 +217,8 @@ def parse_arguments():
     
     parser.add_argument('--host', default='127.0.0.1', help='IP адрес (по умолчанию: 127.0.0.1)')
     parser.add_argument('--port', type=int, default=8050, help='Порт (по умолчанию: 8050)')
-    parser.add_argument('--debug', action='store_true', default=True, help='Режим отладки')
-    parser.add_argument('--no-debug', action='store_false', dest='debug', help='Отключить отладку')
+    # ИСПРАВЛЕНО: debug по умолчанию False для production
+    parser.add_argument('--debug', action='store_true', default=False, help='Включить режим отладки')
     parser.add_argument('--tesseract-path', help='Путь к Tesseract')
     parser.add_argument('--validate-only', action='store_true', help='Только проверка без запуска')
     parser.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], 

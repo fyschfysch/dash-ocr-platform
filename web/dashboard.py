@@ -1,5 +1,6 @@
 """
 Dash Dashboard для OCR платформы
+Обновленная версия с подключением статических файлов
 """
 
 import dash
@@ -19,7 +20,8 @@ import logging
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from core.ocr_engine import DocumentProcessor, ImageProcessor
+from core.ocr_engine import DocumentProcessor
+from core.image_processor import AdvancedImageProcessor
 from core.config import get_config, get_available_configs, UncertaintyEngine, get_field_description
 
 logger = logging.getLogger(__name__)
@@ -36,14 +38,19 @@ def create_dash_app(tesseract_cmd: Optional[str] = None):
         Dash приложение
     """
     doc_processor = DocumentProcessor(tesseract_cmd)
-    image_processor = ImageProcessor()
+    image_processor = AdvancedImageProcessor()
     
     app = dash.Dash(
         __name__,
         external_stylesheets=[
             dbc.themes.BOOTSTRAP,
-            dbc.icons.FONT_AWESOME
+            dbc.icons.FONT_AWESOME,
+            '/assets/custom.css',
+            '/assets/mobile.css',
+            '/assets/print.css'
         ],
+        external_scripts=['/assets/app.js'],
+        assets_folder='static',
         title="OCR Платформа",
         suppress_callback_exceptions=True
     )
@@ -62,7 +69,7 @@ def create_main_layout() -> html.Div:
         dbc.Alert([
             html.H1("OCR Платформа для документов", className="mb-2"),
             html.P("Распознавание документов об образовании", className="mb-0")
-        ], color="primary", className="mb-4"),
+        ], color="primary", className="mb-4 main-header"),
         
         dbc.Card([
             dbc.CardHeader([
@@ -77,7 +84,7 @@ def create_main_layout() -> html.Div:
                         html.Br(),
                         html.H5("Перетащите PDF файл сюда"),
                         html.P("или нажмите для выбора", className="text-muted mb-1")
-                    ], color="light", className="text-center py-4 mb-3"),
+                    ], color="light", className="text-center py-4 mb-3 upload-area"),
                     style={
                         'borderWidth': '2px',
                         'borderStyle': 'dashed',
@@ -127,11 +134,11 @@ def create_main_layout() -> html.Div:
                     ], width=3)
                 ])
             ])
-        ], className="mb-4"),
+        ], className="mb-4 result-card"),
         
         html.Div(id="status-panel", className="mb-3"),
         html.Div(id="pdf-preview-panel", className="mb-4"),
-        html.Div(id="ocr-results-panel"),
+        html.Div(id="ocr-results-panel", className="ocr-result"),
         
         dcc.Store(id='pdf-data-store'),
         dcc.Store(id='ocr-results-store'),
@@ -187,7 +194,7 @@ def setup_callbacks(app, doc_processor, image_processor):
                         className="border"
                     )
                 ])
-            ])
+            ], className="result-card")
             
             status = dbc.Alert(
                 f"Загружен: {filename} ({len(images)} стр.)",
@@ -236,7 +243,7 @@ def setup_callbacks(app, doc_processor, image_processor):
                         className="border"
                     )
                 ])
-            ])
+            ], className="result-card")
             
             return preview
             
@@ -376,7 +383,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                     className="ms-2"
                 )
             ], style={'width': '20%'})
-        ], className="table-warning" if is_uncertain else "")
+        ], className="table-warning uncertainty-warning" if is_uncertain else "")
         
         table_rows.append(row)
     
@@ -393,7 +400,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                 html.Tbody(table_rows)
             ], bordered=True, hover=True)
         ])
-    ], className="mb-4")
+    ], className="mb-4 result-card")
 
 
 def create_summary_panel(results: List[Dict], config) -> dbc.Card:
@@ -425,18 +432,18 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
                     html.H5(f"Страниц: {total_pages}"),
                     html.P(f"Конфигурация: {config.name}"),
                     html.P(f"Требуют проверки: {total_uncertainties}" if total_uncertainties > 0 
-                          else "Все поля распознаны уверенно")
+                          else "Все поля распознаны уверенно", className="uncertainty-warning" if total_uncertainties > 0 else "")
                 ], width=8),
                 dbc.Col([
                     html.A(
-                        dbc.Button("Скачать CSV", color="success", size="lg", className="w-100"),
+                        dbc.Button("Скачать CSV", color="success", size="lg", className="w-100 export-btn"),
                         href=f"data:text/csv;charset=utf-8;base64,{csv_b64}",
                         download=f"ocr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
                     )
                 ], width=4)
             ])
         ])
-    ], className="mb-4")
+    ], className="mb-4 result-card")
 
 
 if __name__ == '__main__':

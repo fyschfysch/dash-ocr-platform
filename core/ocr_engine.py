@@ -1,5 +1,6 @@
 """
 OCR движок с Tesseract для распознавания документов об образовании
+Использует AdvancedImageProcessor для обработки изображений
 """
 
 import pytesseract
@@ -7,182 +8,9 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
 import cv2
 import numpy as np
 from typing import Tuple, Dict, Any, List
-import os
-import io
+import logging
 
-
-class ImageProcessor:
-    """Класс для обработки изображений PDF с улучшенной предобработкой"""
-    
-    def __init__(self, max_dimension: int = 1200, dpi: int = 300):
-        """
-        Инициализация процессора изображений
-        
-        Args:
-            max_dimension: Максимальный размер стороны изображения после масштабирования
-            dpi: Разрешение для конвертации PDF в изображение
-        """
-        self.max_dimension = max_dimension
-        self.dpi = dpi
-    
-    def convert_pdf_to_images(self, pdf_path: str) -> List[Image.Image]:
-        """
-        Конвертация PDF в список изображений
-        
-        Args:
-            pdf_path: Путь к PDF файлу
-            
-        Returns:
-            List[Image.Image]: Список изображений страниц
-        """
-        import fitz
-        
-        if not os.path.exists(pdf_path):
-            raise FileNotFoundError(f"Файл {pdf_path} не найден")
-        
-        images = []
-        pdf_document = fitz.open(pdf_path)
-        
-        for page_num in range(len(pdf_document)):
-            page = pdf_document.load_page(page_num)
-            mat = fitz.Matrix(self.dpi/72, self.dpi/72)
-            pix = page.get_pixmap(matrix=mat)
-            img_data = pix.tobytes("ppm")
-            img = Image.open(io.BytesIO(img_data))
-            images.append(img)
-        
-        pdf_document.close()
-        return images
-    
-    def convert_pdf_from_bytes(self, pdf_bytes: bytes) -> List[Image.Image]:
-        """
-        Конвертация PDF из байтов в список изображений
-        
-        Args:
-            pdf_bytes: PDF файл в виде байтов
-            
-        Returns:
-            List[Image.Image]: Список изображений страниц
-        """
-        import fitz
-        
-        images = []
-        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-        
-        for page_num in range(len(pdf_document)):
-            page = pdf_document.load_page(page_num)
-            mat = fitz.Matrix(self.dpi/72, self.dpi/72)
-            pix = page.get_pixmap(matrix=mat)
-            img_data = pix.tobytes("ppm")
-            img = Image.open(io.BytesIO(img_data))
-            images.append(img)
-        
-        pdf_document.close()
-        return images
-    
-    def resize_image(self, img: Image.Image) -> Image.Image:
-        """
-        Масштабирование изображения с сохранением пропорций
-        
-        Args:
-            img: Исходное изображение
-            
-        Returns:
-            Image.Image: Масштабированное изображение
-        """
-        width, height = img.size
-        max_dim = max(width, height)
-        
-        if max_dim > self.max_dimension:
-            scale = self.max_dimension / max_dim
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            img = img.resize((new_width, new_height), Image.LANCZOS)
-        
-        return img
-    
-    def enhance_image(self, img: Image.Image) -> Image.Image:
-        """
-        Улучшение качества изображения
-        
-        Args:
-            img: Исходное изображение
-            
-        Returns:
-            Image.Image: Улучшенное изображение
-        """
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(1.2)
-        
-        enhancer = ImageEnhance.Sharpness(img)
-        img = enhancer.enhance(1.1)
-        
-        return img
-    
-    def enhance_image_advanced(self, img: Image.Image) -> Image.Image:
-        """
-        Расширенное улучшение качества изображения
-        
-        Args:
-            img: Исходное изображение
-            
-        Returns:
-            Image.Image: Улучшенное изображение
-        """
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(1.3)
-        
-        enhancer = ImageEnhance.Sharpness(img)
-        img = enhancer.enhance(1.2)
-        
-        enhancer = ImageEnhance.Brightness(img)
-        img = enhancer.enhance(1.1)
-        
-        return img
-    
-    def rotate_image(self, img: Image.Image, rotation_angle: int) -> Image.Image:
-        """
-        Поворот изображения на заданный угол
-        
-        Args:
-            img: Исходное изображение
-            rotation_angle: Угол поворота (90, 180, 270)
-            
-        Returns:
-            Image.Image: Повернутое изображение
-        """
-        if rotation_angle == 90:
-            return img.transpose(Image.ROTATE_90)
-        elif rotation_angle == 180:
-            return img.transpose(Image.ROTATE_180)
-        elif rotation_angle == 270:
-            return img.transpose(Image.ROTATE_270)
-        return img
-    
-    def remove_lines_from_region(self, img: Image.Image, aggressive: bool = False) -> Image.Image:
-        """
-        Удаление горизонтальных линий для улучшения OCR текста на подчеркиваниях
-        
-        Args:
-            img: Область изображения для обработки
-            aggressive: Использовать агрессивное удаление линий
-            
-        Returns:
-            Image.Image: Обработанное изображение
-        """
-        img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-        
-        if aggressive:
-            horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 1))
-            lines_mask = cv2.morphologyEx(gray, cv2.MORPH_OPEN, horizontal_kernel)
-            gray_no_lines = cv2.subtract(gray, lines_mask)
-            gray_no_lines = cv2.addWeighted(gray_no_lines, 1.5, gray_no_lines, 0, 0)
-        else:
-            gray_no_lines = cv2.bilateralFilter(gray, 9, 75, 75)
-        
-        img_processed = Image.fromarray(gray_no_lines)
-        return img_processed
+logger = logging.getLogger(__name__)
 
 
 class OCREngine:
@@ -197,7 +25,10 @@ class OCREngine:
         """
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
-        self.image_processor = ImageProcessor()
+        
+        # Импортируем AdvancedImageProcessor
+        from core.image_processor import AdvancedImageProcessor
+        self.image_processor = AdvancedImageProcessor()
     
     def preprocess_region(self, region: Image.Image, ocr_params: Dict, 
                          field_name: str = "", config_org: str = "") -> Image.Image:
@@ -218,23 +49,29 @@ class OCREngine:
         
         width, height = region.size
         
+        # Удаление линий для ФИО в ФинУниверситете
         if field_name == 'full_name' and 'FINUNIV' in config_org:
-            region = self.image_processor.remove_lines_from_region(region, aggressive=True)
+            region = self.image_processor.remove_lines_horizontal(region, aggressive=True)
         
+        # Масштабирование
         if scale_factor > 1:
             new_size = (width * scale_factor, height * scale_factor)
             region = region.resize(new_size, Image.LANCZOS)
         
+        # Контраст
         enhancer = ImageEnhance.Contrast(region)
         region = enhancer.enhance(contrast_boost)
         
+        # Дополнительная обработка для регистрационных номеров
         if field_name == 'registration_number' and scale_factor >= 4:
             enhancer = ImageEnhance.Brightness(region)
             region = enhancer.enhance(1.1)
             region = region.filter(ImageFilter.MedianFilter(size=3))
         
+        # Медианный фильтр для удаления шума
         region = region.filter(ImageFilter.MedianFilter(size=3))
         
+        # Повышение резкости
         enhancer = ImageEnhance.Sharpness(region)
         region = enhancer.enhance(1.5)
         
@@ -258,13 +95,14 @@ class OCREngine:
         region = self.preprocess_region(region, config.ocr_params, field_name, config.organization)
         region = region.convert('L')
         
+        # Выбор режима PSM в зависимости от типа поля
         if field_name == 'full_name':
             if config.document_type == 'diploma':
-                psm = 6
+                psm = 6  # Многострочный текст
             elif 'FINUNIV' in config.organization and 'v2' in config.document_type:
                 psm = 6
             else:
-                psm = 7
+                psm = 7  # Однострочный текст
         elif field_name == 'issue_date' and 'FINUNIV' in config.organization:
             psm = 6
         else:
@@ -273,6 +111,7 @@ class OCREngine:
         try:
             config_str = f'--oem 3 --psm {psm}'
             
+            # Выбор языка распознавания
             if field_name == 'full_name' or 'date' in field_name:
                 lang = 'rus'
             elif field_name == 'series_and_number':
@@ -283,7 +122,7 @@ class OCREngine:
             text = pytesseract.image_to_string(region, lang=lang, config=config_str)
             return text.strip()
         except Exception as e:
-            print(f"❌ Ошибка OCR: {e}")
+            logger.error(f"Ошибка OCR для поля {field_name}: {e}")
             return ""
 
 
@@ -297,7 +136,8 @@ class DocumentProcessor:
         Args:
             tesseract_cmd: Путь к исполняемому файлу Tesseract (опционально)
         """
-        self.image_processor = ImageProcessor()
+        from core.image_processor import AdvancedImageProcessor
+        self.image_processor = AdvancedImageProcessor()
         self.ocr_engine = OCREngine(tesseract_cmd)
     
     def extract_fields(self, img: Image.Image, config: Any, 
@@ -322,6 +162,13 @@ class DocumentProcessor:
             
             if not box:
                 result[field_name] = "NOT_CONFIGURED"
+                continue
+            
+            # Валидация координат
+            if not (isinstance(box, (list, tuple)) and len(box) == 4 and 
+                   all(isinstance(x, (int, float)) for x in box)):
+                logger.warning(f"Некорректные координаты для поля {field_name}: {box}")
+                result[field_name] = "INVALID_BOX"
                 continue
             
             text = self.ocr_engine.extract_text(img, box, field_name, config)
@@ -385,14 +232,14 @@ class DocumentProcessor:
             box = field_config.get('box')
             field_name = field_config.get('name', '')
             
-            if box:
+            if box and len(box) == 4:
                 color = colors[i % len(colors)]
                 draw.rectangle(box, outline=color, width=3)
                 
                 try:
                     draw.text((box[0], box[1] - 15), field_name, fill=color)
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Не удалось добавить текст к полю {field_name}: {e}")
         
         return img_copy
     
@@ -407,4 +254,13 @@ class DocumentProcessor:
         Returns:
             Image.Image: Миниатюра поля
         """
-        return img.crop(box)
+        try:
+            if box and len(box) == 4 and all(isinstance(x, (int, float)) for x in box):
+                return img.crop(box)
+            else:
+                logger.warning(f"Некорректные координаты box: {box}")
+                # Возвращаем заглушку
+                return Image.new('RGB', (120, 80), 'lightgray')
+        except Exception as e:
+            logger.error(f"Ошибка вырезания миниатюры: {e}")
+            return Image.new('RGB', (120, 80), 'lightgray')
