@@ -34,8 +34,47 @@ class OneTParsers:
     """Паттерны парсинга для документов 1Т"""
     
     @staticmethod
+    def parse_series_only(text: str) -> Tuple[str, bool]:
+        """
+        Парсинг только серии (первые 2 цифры)
+        Returns: (series, uncertain)
+        """
+        text = re.sub(r'\s+', ' ', text.strip())
+        
+        # Ищем 2 цифры
+        match = re.search(r'(\d{2})', text)
+        if match:
+            series = match.group(1)
+            return series, False
+        
+        return "", True
+    
+    @staticmethod
+    def parse_number_only(text: str) -> Tuple[str, bool]:
+        """
+        Парсинг только номера (6+ цифр)
+        Returns: (number, uncertain)
+        """
+        text = re.sub(r'\s+', ' ', text.strip())
+        
+        # Удаляем "№" если есть
+        text = text.replace('№', '').strip()
+        
+        # Ищем 6+ цифр
+        digits = re.findall(r'\d+', text)
+        if digits:
+            number = ''.join(digits)[:6]  # Берем первые 6 цифр
+            uncertain = len(number) < 4
+            return number, uncertain
+        
+        return "", True
+    
+    @staticmethod
     def parse_series_number(text: str) -> Tuple[str, str, bool]:
-        """Парсинг серии и номера в формате '02 № 123456'"""
+        """
+        Парсинг серии и номера в формате '02 № 123456' (для обратной совместимости)
+        Returns: (series, number, uncertain)
+        """
         text = re.sub(r'\s+', ' ', text.strip())
         patterns = [
             r'(\d{2})\s*№\s*(\d{6,})',
