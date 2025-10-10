@@ -1,10 +1,6 @@
 """
 Dash Dashboard для OCR платформы
-Версия: 3.0 (Исправлены критические ошибки)
-- Исправлен поворот с обновлением превью
-- Убрано преобразование дательного падежа
-- series_and_number как единое поле для всех организаций
-- Упрощенная интерактивная разметка
+Версия: 3.2 (Финальная - с отрисовкой полей при выборе конфигурации)
 """
 
 import dash
@@ -429,15 +425,15 @@ def setup_callbacks(app, doc_processor, image_processor):
         [Input('quick-rotation-btn', 'n_clicks')],
         [State('rotation-angle-store', 'data'),
          State('global-pdf-store', 'data'),
-         State('quick-upload', 'filename')],
+         State('quick-upload', 'filename'),
+         State('quick-config-select', 'value')],
         prevent_initial_call=True
     )
-    def rotate_image_and_preview(n_clicks, current_angle, pdf_data, filename):
+    def rotate_image_and_preview(n_clicks, current_angle, pdf_data, filename, config_id):
         if not n_clicks or not pdf_data:
             raise PreventUpdate
         
         new_angle = (current_angle + 90) % 360
-        
         icons = {0: "→", 90: "↓", 180: "←", 270: "↑"}
         
         try:
@@ -447,16 +443,25 @@ def setup_callbacks(app, doc_processor, image_processor):
             if new_angle:
                 img = image_processor.rotate_image(img, new_angle)
             
+            # Если выбрана конфигурация, рисуем поля
+            if config_id:
+                config = get_config(config_id)
+                img = doc_processor.display_image_with_boxes(img, config.fields)
+            
             buffer = io.BytesIO()
             img.save(buffer, format='PNG')
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
+            badges = [dbc.Badge(f"Поворот: {new_angle}°", color="warning", className="ms-2")]
+            if config_id:
+                config = get_config(config_id)
+                badges.append(dbc.Badge(config.name, color="info", className="ms-2"))
+            
             preview = dbc.Card([
                 dbc.CardHeader([
                     html.I(className="fas fa-file-pdf me-2"),
-                    f"{filename}",
-                    dbc.Badge(f"Поворот: {new_angle}°", color="warning", className="ms-2")
-                ]),
+                    f"{filename}"
+                ] + badges),
                 dbc.CardBody([
                     html.Img(
                         src=f"data:image/png;base64,{img_b64}",
@@ -473,6 +478,64 @@ def setup_callbacks(app, doc_processor, image_processor):
             
         except Exception as e:
             logger.error(f"Ошибка поворота: {e}")
+            raise PreventUpdate
+    
+    # Callback: Отображение полей при выборе конфигурации
+    @app.callback(
+        Output('quick-preview-panel', 'children', allow_duplicate=True),
+        [Input('quick-config-select', 'value')],
+        [State('global-pdf-store', 'data'),
+         State('quick-upload', 'filename'),
+         State('rotation-angle-store', 'data')],
+        prevent_initial_call=True
+    )
+    def show_fields_on_config_select(config_id, pdf_data, filename, rotation):
+        if not config_id or not pdf_data:
+            raise PreventUpdate
+        
+        try:
+            config = get_config(config_id)
+            
+            img_data = base64.b64decode(pdf_data[0])
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Применяем поворот если есть
+            if rotation:
+                img = image_processor.rotate_image(img, rotation)
+            
+            # Рисуем рамки полей
+            img_with_boxes = doc_processor.display_image_with_boxes(img, config.fields)
+            
+            buffer = io.BytesIO()
+            img_with_boxes.save(buffer, format='PNG')
+            img_b64 = base64.b64encode(buffer.getvalue()).decode()
+            
+            badges = [dbc.Badge(config.name, color="info", className="ms-2")]
+            if rotation:
+                badges.append(dbc.Badge(f"Поворот: {rotation}°", color="warning", className="ms-2"))
+            
+            preview = dbc.Card([
+                dbc.CardHeader([
+                    html.I(className="fas fa-file-pdf me-2"),
+                    f"{filename}"
+                ] + badges),
+                dbc.CardBody([
+                    html.Img(
+                        src=f"data:image/png;base64,{img_b64}",
+                        style={'width': '100%', 'maxHeight': '600px', 'objectFit': 'contain'},
+                        className="border rounded"
+                    ),
+                    html.Small([
+                        html.I(className="fas fa-info-circle me-1"),
+                        f"Настроенные поля: {len(config.fields)}"
+                    ], className="text-muted d-block mt-2")
+                ])
+            ], className="result-card")
+            
+            return preview
+            
+        except Exception as e:
+            logger.error(f"Ошибка отображения полей: {e}")
             raise PreventUpdate
     
     # Callback: Распознавание
@@ -630,7 +693,7 @@ def create_results_interface(results: List[Dict], config) -> html.Div:
 
 
 def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
-    """Создание редактируемой таблицы"""
+    """Создание редактируемой таблицы с ОТДЕЛЬНЫМИ строками для серии и номера"""
     page_num = page_result['page']
     uncertainties = page_result.get('uncertainties', [])
     uncertain_fields = {u['field'] for u in uncertainties}
@@ -640,42 +703,96 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
     
     for field_config in config.fields:
         field_name = field_config['name']
-        field_display = get_field_description(field_name)
         
         if field_name == 'series_and_number':
-            value = f"{page_result.get('series', '')} {page_result.get('number', '')}".strip()
+            # Строка 1: Серия
+            series_value = page_result.get('series', '')
+            thumb_b64 = field_thumbnails.get(field_name, '')
+            is_uncertain = field_name in uncertain_fields
+            
+            table_rows.append(html.Tr([
+                html.Td([
+                    html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
+                    "Серия"
+                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                html.Td([
+                    html.Img(
+                        src=f"data:image/png;base64,{thumb_b64}",
+                        style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
+                        className="border"
+                    ) if thumb_b64 else "—"
+                ], style={'width': '20%', 'textAlign': 'center'}, rowSpan=2),
+                html.Td([
+                    dcc.Input(
+                        id={'type': 'field-input', 'page': page_num, 'field': 'series'},
+                        value=str(series_value),
+                        style={
+                            'width': '100%', 
+                            'backgroundColor': '#fff3cd' if is_uncertain else '#fff',
+                            'padding': '6px 10px',
+                            'fontSize': '0.9rem'
+                        },
+                        className="form-control form-control-sm"
+                    )
+                ], style={'width': '65%'})
+            ], className="table-warning" if is_uncertain else ""))
+            
+            # Строка 2: Номер
+            number_value = page_result.get('number', '')
+            
+            table_rows.append(html.Tr([
+                html.Td([
+                    html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
+                    "Номер"
+                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                html.Td([
+                    dcc.Input(
+                        id={'type': 'field-input', 'page': page_num, 'field': 'number'},
+                        value=str(number_value),
+                        style={
+                            'width': '100%', 
+                            'backgroundColor': '#fff3cd' if is_uncertain else '#fff',
+                            'padding': '6px 10px',
+                            'fontSize': '0.9rem'
+                        },
+                        className="form-control form-control-sm"
+                    )
+                ], style={'width': '65%'})
+            ], className="table-warning" if is_uncertain else ""))
+        
         else:
+            # Обычные поля
+            field_display = get_field_description(field_name)
             value = page_result.get(field_name, '')
-        
-        thumb_b64 = field_thumbnails.get(field_name, '')
-        is_uncertain = field_name in uncertain_fields
-        
-        table_rows.append(html.Tr([
-            html.Td([
-                html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
-                field_display
-            ], style={'width': '15%', 'fontSize': '0.9rem'}),
-            html.Td([
-                html.Img(
-                    src=f"data:image/png;base64,{thumb_b64}",
-                    style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
-                    className="border"
-                ) if thumb_b64 else "—"
-            ], style={'width': '20%', 'textAlign': 'center'}),
-            html.Td([
-                dcc.Input(
-                    id={'type': 'field-input', 'page': page_num, 'field': field_name},
-                    value=str(value),
-                    style={
-                        'width': '100%', 
-                        'backgroundColor': '#fff3cd' if is_uncertain else '#fff',
-                        'padding': '6px 10px',
-                        'fontSize': '0.9rem'
-                    },
-                    className="form-control form-control-sm"
-                )
-            ], style={'width': '65%'})
-        ], className="table-warning" if is_uncertain else ""))
+            thumb_b64 = field_thumbnails.get(field_name, '')
+            is_uncertain = field_name in uncertain_fields
+            
+            table_rows.append(html.Tr([
+                html.Td([
+                    html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
+                    field_display
+                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                html.Td([
+                    html.Img(
+                        src=f"data:image/png;base64,{thumb_b64}",
+                        style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
+                        className="border"
+                    ) if thumb_b64 else "—"
+                ], style={'width': '20%', 'textAlign': 'center'}),
+                html.Td([
+                    dcc.Input(
+                        id={'type': 'field-input', 'page': page_num, 'field': field_name},
+                        value=str(value),
+                        style={
+                            'width': '100%', 
+                            'backgroundColor': '#fff3cd' if is_uncertain else '#fff',
+                            'padding': '6px 10px',
+                            'fontSize': '0.9rem'
+                        },
+                        className="form-control form-control-sm"
+                    )
+                ], style={'width': '65%'})
+            ], className="table-warning" if is_uncertain else ""))
     
     return dbc.Card([
         dbc.CardHeader([
