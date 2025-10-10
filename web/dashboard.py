@@ -767,6 +767,66 @@ def setup_callbacks(app, doc_processor, image_processor):
                 ], color="info"), f"{len(shapes)}", "success"
         
         return "", "Рисуйте", "warning"
+    
+    # Callback для JSON редактора (ПЕРЕМЕЩЁН СЮДА)
+    @app.callback(
+        Output('json-editor-panel', 'children'),
+        [Input('edit-json-btn', 'n_clicks')],
+        [State('global-results-store', 'data')],
+        prevent_initial_call=True
+    )
+    def show_json_editor(n_clicks, results):
+        if not n_clicks or not results:
+            raise PreventUpdate
+        
+        json_str = json.dumps(results, ensure_ascii=False, indent=2)
+        
+        return dbc.Card([
+            dbc.CardHeader([
+                html.I(className="fas fa-code me-2"),
+                "JSON Редактор"
+            ]),
+            dbc.CardBody([
+                dcc.Textarea(
+                    id='json-textarea',
+                    value=json_str,
+                    style={'width': '100%', 'height': '400px', 'fontFamily': 'monospace'},
+                    className="form-control"
+                ),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Button(
+                            [html.I(className="fas fa-save me-2"), "Применить изменения"],
+                            id='apply-json-btn',
+                            color="primary",
+                            size="sm",
+                            className="mt-2"
+                        )
+                    ], width=3),
+                    dbc.Col([
+                        html.Div(id='json-status')
+                    ], width=9)
+                ])
+            ])
+        ], className="mb-3 result-card")
+    
+    # Callback для применения JSON изменений (ПЕРЕМЕЩЁН СЮДА)
+    @app.callback(
+        [Output('global-results-store', 'data', allow_duplicate=True),
+         Output('json-status', 'children')],
+        [Input('apply-json-btn', 'n_clicks')],
+        [State('json-textarea', 'value')],
+        prevent_initial_call=True
+    )
+    def apply_json_changes(n_clicks, json_str):
+        if not n_clicks:
+            raise PreventUpdate
+        
+        try:
+            new_results = json.loads(json_str)
+            return new_results, dbc.Alert("✓ Изменения применены", color="success", className="mt-2")
+        except json.JSONDecodeError as e:
+            return no_update, dbc.Alert(f"❌ Ошибка JSON: {str(e)}", color="danger", className="mt-2")
 
 
 
@@ -996,68 +1056,6 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
             ])
         ])
     ], className="mb-4 result-card")
-
-
-
-# Callback для JSON редактора
-@app.callback(
-    Output('json-editor-panel', 'children'),
-    [Input('edit-json-btn', 'n_clicks')],
-    [State('global-results-store', 'data')],
-    prevent_initial_call=True
-)
-def show_json_editor(n_clicks, results):
-    if not n_clicks or not results:
-        raise PreventUpdate
-    
-    json_str = json.dumps(results, ensure_ascii=False, indent=2)
-    
-    return dbc.Card([
-        dbc.CardHeader([
-            html.I(className="fas fa-code me-2"),
-            "JSON Редактор"
-        ]),
-        dbc.CardBody([
-            dcc.Textarea(
-                id='json-textarea',
-                value=json_str,
-                style={'width': '100%', 'height': '400px', 'fontFamily': 'monospace'},
-                className="form-control"
-            ),
-            dbc.Row([
-                dbc.Col([
-                    dbc.Button(
-                        [html.I(className="fas fa-save me-2"), "Применить изменения"],
-                        id='apply-json-btn',
-                        color="primary",
-                        size="sm",
-                        className="mt-2"
-                    )
-                ], width=3),
-                dbc.Col([
-                    html.Div(id='json-status')
-                ], width=9)
-            ])
-        ])
-    ], className="mb-3 result-card")
-
-
-@app.callback(
-    [Output('global-results-store', 'data', allow_duplicate=True),
-     Output('json-status', 'children')],
-    [Input('apply-json-btn', 'n_clicks')],
-    [State('json-textarea', 'value')],
-    prevent_initial_call=True
-)
-def apply_json_changes(n_clicks, json_str):
-    if not n_clicks:
-        raise PreventUpdate
-    
-    try:
-        new_results = json.loads(json_str)
-        return new_results, dbc.Alert("✓ Изменения применены", color="success", className="mt-2")
-    except json.JSONDecodeError as e:
-        return no_update, dbc.Alert(f"❌ Ошибка JSON: {str(e)}", color="danger", className="mt-2")
 
 
 
