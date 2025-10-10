@@ -1,7 +1,5 @@
 """
 Полнофункциональный Dash Dashboard для OCR платформы
-С интерактивной разметкой полей, прогресс-барами и визуальным интерфейсом
-Версия: 2.0 (Финальная)
 """
 
 import dash
@@ -44,7 +42,6 @@ def create_dash_app(tesseract_cmd: Optional[str] = None):
     doc_processor = DocumentProcessor(tesseract_cmd)
     image_processor = AdvancedImageProcessor()
     
-    # Dash автоматически подключит все файлы из assets/
     app = dash.Dash(
         __name__,
         external_stylesheets=[
@@ -58,13 +55,13 @@ def create_dash_app(tesseract_cmd: Optional[str] = None):
     app.layout = create_main_layout()
     setup_callbacks(app, doc_processor, image_processor)
     
-    logger.info("Dash приложение инициализировано с полным функционалом")
+    logger.info("Dash приложение инициализировано с улучшенным UX")
     
     return app
 
 
 def create_main_layout() -> html.Div:
-    """Создание главного layout с четырьмя режимами работы"""
+    """Создание главного layout"""
     return dbc.Container([
         # Заголовок
         dbc.Alert([
@@ -77,28 +74,21 @@ def create_main_layout() -> html.Div:
         
         # Вкладки режимов работы
         dbc.Tabs([
-            # Режим 1: Быстрое распознавание
             dbc.Tab(
                 label="🚀 Быстрое распознавание",
                 tab_id="quick-ocr",
                 children=create_quick_ocr_tab()
             ),
-            
-            # Режим 2: Интерактивная разметка
             dbc.Tab(
                 label="🎯 Интерактивная разметка",
                 tab_id="interactive-markup",
                 children=create_interactive_markup_tab()
             ),
-            
-            # Режим 3: Пакетная обработка
             dbc.Tab(
                 label="📦 Пакетная обработка",
                 tab_id="batch-processing",
                 children=create_batch_processing_tab()
             ),
-            
-            # Режим 4: Создание конфигураций
             dbc.Tab(
                 label="⚙️ Создание конфигурации",
                 tab_id="config-creator",
@@ -112,9 +102,9 @@ def create_main_layout() -> html.Div:
         dcc.Store(id='global-results-store'),
         dcc.Store(id='markup-boxes-store', data={}),
         dcc.Store(id='current-image-store'),
+        dcc.Store(id='rotation-angle-store', data=0),
         dcc.Store(id='processing-status-store', data={'status': 'idle', 'progress': 0}),
         
-        # Interval для анимации прогресса
         dcc.Interval(id='progress-interval', interval=200, n_intervals=0, disabled=True),
         
     ], fluid=True, className="py-4")
@@ -138,7 +128,7 @@ def create_quick_ocr_tab() -> html.Div:
                                 html.I(className="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"),
                                 html.Br(),
                                 html.H5("Перетащите PDF или изображение"),
-                                html.Small("Поддерживается: PDF, PNG, JPG (до 50MB)", className="text-muted")
+                                html.Small("Поддерживается: PDF, PNG, JPG", className="text-muted")
                             ], color="light", className="text-center py-4 upload-area"),
                             style={
                                 'borderWidth': '2px',
@@ -158,24 +148,24 @@ def create_quick_ocr_tab() -> html.Div:
                         "Шаг 2: Выберите тип документа"
                     ], className="fw-bold"),
                     dbc.CardBody([
-                        dbc.Label("Тип документа:"),
+                        dbc.Label("Тип документа:", className="small"),
                         dcc.Dropdown(
                             id='quick-config-select',
                             options=get_config_options(),
-                            placeholder="Выберите тип..."
+                            placeholder="Выберите тип...",
+                            style={'fontSize': '0.9rem'}
                         ),
                         html.Hr(),
-                        dbc.Label("Поворот изображения:"),
-                        dcc.Dropdown(
-                            id='quick-rotation',
-                            options=[
-                                {'label': '0° (без поворота)', 'value': 0},
-                                {'label': '90° по часовой ↻', 'value': 90},
-                                {'label': '180° ↻', 'value': 180},
-                                {'label': '270° против часовой ↺', 'value': 270}
-                            ],
-                            value=0
+                        dbc.Label("Поворот:", className="small"),
+                        dbc.Button(
+                            [html.I(className="fas fa-redo me-2"), "Повернуть на 90° →"],
+                            id='quick-rotation-btn',
+                            color="secondary",
+                            outline=True,
+                            size="sm",
+                            className="w-100"
                         ),
+                        html.Small(id="rotation-status", className="text-muted d-block mt-1", children="Текущий угол: 0°"),
                         html.Hr(),
                         dbc.Checklist(
                             options=[
@@ -217,10 +207,9 @@ def create_quick_ocr_tab() -> html.Div:
 
 
 def create_interactive_markup_tab() -> html.Div:
-    """Режим интерактивной разметки с Plotly"""
+    """Режим интерактивной разметки"""
     return html.Div([
         dbc.Row([
-            # Левая панель - управление
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader([
@@ -254,14 +243,15 @@ def create_interactive_markup_tab() -> html.Div:
                         "Конфигурация"
                     ]),
                     dbc.CardBody([
-                        dbc.Label("Базовая конфигурация:"),
+                        dbc.Label("Базовая конфигурация:", className="small"),
                         dcc.Dropdown(
                             id='markup-base-config',
                             options=[{'label': '🆕 Новая (пустая)', 'value': 'empty'}] + get_config_options(),
-                            value='empty'
+                            value='empty',
+                            style={'fontSize': '0.9rem'}
                         ),
                         html.Hr(),
-                        dbc.Label("Режим работы:"),
+                        dbc.Label("Режим работы:", className="small"),
                         dbc.RadioItems(
                             id='markup-mode',
                             options=[
@@ -272,7 +262,7 @@ def create_interactive_markup_tab() -> html.Div:
                             value='view',
                             inline=False
                         ),
-                        html.Small("В режиме рисования кликните и перетащите мышью для создания области", 
+                        html.Small("В режиме рисования кликните и перетащите мышью", 
                                  className="text-muted d-block mt-2")
                     ])
                 ], className="mb-3"),
@@ -302,28 +292,30 @@ def create_interactive_markup_tab() -> html.Div:
                     ]),
                     dbc.CardBody([
                         dbc.Button(
-                            [html.I(className="fas fa-play me-2"), "Распознать с текущей разметкой"],
+                            [html.I(className="fas fa-play me-2"), "Распознать"],
                             id="markup-run-ocr",
                             color="success",
+                            size="sm",
                             className="w-100 mb-2"
                         ),
                         dbc.Button(
                             [html.I(className="fas fa-save me-2"), "Сохранить конфигурацию"],
                             id="markup-save-config",
                             color="primary",
+                            size="sm",
                             className="w-100 mb-2"
                         ),
                         dbc.Button(
-                            [html.I(className="fas fa-download me-2"), "Экспорт в JSON"],
+                            [html.I(className="fas fa-download me-2"), "Экспорт JSON"],
                             id="markup-export-json",
                             color="info",
+                            size="sm",
                             className="w-100"
                         )
                     ])
                 ])
             ], width=3),
             
-            # Правая панель - интерактивное изображение
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader([
@@ -331,7 +323,7 @@ def create_interactive_markup_tab() -> html.Div:
                             html.I(className="fas fa-crosshairs me-2"),
                             "Интерактивная разметка"
                         ], className="me-3"),
-                        dbc.Badge(id="markup-status-badge", color="secondary", children="Готов к работе")
+                        dbc.Badge(id="markup-status-badge", color="secondary", children="Готов")
                     ]),
                     dbc.CardBody([
                         dcc.Graph(
@@ -374,7 +366,7 @@ def create_batch_processing_tab() -> html.Div:
                         html.I(className="fas fa-folder-open fa-3x mb-3 text-primary"),
                         html.Br(),
                         html.H5("Перетащите несколько PDF файлов"),
-                        html.Small("Или нажмите для выбора нескольких файлов")
+                        html.Small("Или нажмите для выбора")
                     ], color="light", className="text-center py-5 upload-area"),
                     style={
                         'borderWidth': '3px',
@@ -389,11 +381,12 @@ def create_batch_processing_tab() -> html.Div:
                 
                 dbc.Row([
                     dbc.Col([
-                        dbc.Label("Тип всех документов:"),
+                        dbc.Label("Тип всех документов:", className="small"),
                         dcc.Dropdown(
                             id='batch-config-select',
                             options=get_config_options(),
-                            placeholder="Выберите единый тип"
+                            placeholder="Выберите единый тип",
+                            style={'fontSize': '0.9rem'}
                         )
                     ], width=8),
                     dbc.Col([
@@ -429,28 +422,29 @@ def create_config_creator_tab() -> html.Div:
                 dbc.Card([
                     dbc.CardHeader("Шаг 1: Информация о конфигурации"),
                     dbc.CardBody([
-                        dbc.Label("Название конфигурации:"),
+                        dbc.Label("Название конфигурации:", className="small"),
                         dbc.Input(
                             id="config-name-input", 
                             placeholder="Например: МГУ - Диплом 2024",
                             className="mb-3"
                         ),
-                        dbc.Label("Код организации (на английском):"),
+                        dbc.Label("Код организации:", className="small"),
                         dbc.Input(
                             id="config-org-input", 
                             placeholder="Например: MSU",
                             className="mb-3"
                         ),
-                        dbc.Label("Тип документа:"),
+                        dbc.Label("Тип документа:", className="small"),
                         dcc.Dropdown(
                             id="config-type-select",
                             options=[
-                                {'label': 'Диплом о переподготовке', 'value': 'diploma'},
-                                {'label': 'Удостоверение о повышении квалификации', 'value': 'certificate'},
+                                {'label': 'Диплом', 'value': 'diploma'},
+                                {'label': 'Удостоверение', 'value': 'certificate'},
                                 {'label': 'Свидетельство', 'value': 'attestation'},
                                 {'label': 'Другое', 'value': 'other'}
                             ],
-                            placeholder="Выберите тип"
+                            placeholder="Выберите тип",
+                            style={'fontSize': '0.9rem'}
                         )
                     ])
                 ])
@@ -486,10 +480,10 @@ def create_config_creator_tab() -> html.Div:
             dbc.CardBody([
                 dbc.Alert([
                     html.I(className="fas fa-arrow-right me-2"),
-                    "Перейдите на вкладку 'Интерактивная разметка' для создания разметки полей"
+                    "Перейдите на вкладку 'Интерактивная разметка' для создания разметки"
                 ], color="info"),
                 dbc.Button(
-                    [html.I(className="fas fa-external-link-alt me-2"), "Открыть инструмент разметки →"],
+                    [html.I(className="fas fa-external-link-alt me-2"), "Открыть разметку →"],
                     id="goto-markup-btn",
                     color="info",
                     outline=True
@@ -513,7 +507,8 @@ def create_config_creator_tab() -> html.Div:
                         'padding': '15px',
                         'borderRadius': '5px',
                         'maxHeight': '400px',
-                        'overflow': 'auto'
+                        'overflow': 'auto',
+                        'fontSize': '0.85rem'
                     }
                 ),
                 dbc.Button(
@@ -536,22 +531,12 @@ def get_config_options() -> List[Dict]:
 
 def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None, 
                                    mode: str = 'view') -> go.Figure:
-    """
-    Создание интерактивного изображения с Plotly
-    
-    Args:
-        img: PIL изображение
-        boxes: Словарь с координатами полей {field_name: (x1, y1, x2, y2)}
-        mode: Режим ('view', 'draw', 'edit')
-    """
+    """Создание интерактивного изображения с Plotly"""
     img_array = np.array(img)
     
     fig = go.Figure()
-    
-    # Добавляем изображение
     fig.add_trace(go.Image(z=img_array))
     
-    # Добавляем прямоугольники полей
     if boxes:
         colors = ['red', 'green', 'blue', 'orange', 'purple', 'cyan', 'magenta', 'yellow']
         for i, (field_name, box) in enumerate(boxes.items()):
@@ -559,7 +544,6 @@ def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None,
                 x0, y0, x1, y1 = box
                 color = colors[i % len(colors)]
                 
-                # Рисуем прямоугольник
                 fig.add_shape(
                     type="rect",
                     x0=x0, y0=y0, x1=x1, y1=y1,
@@ -567,7 +551,6 @@ def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None,
                     name=field_name
                 )
                 
-                # Добавляем подпись
                 fig.add_annotation(
                     x=x0, y=y0,
                     text=get_field_description(field_name),
@@ -577,7 +560,6 @@ def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None,
                     yshift=-10
                 )
     
-    # Настройки layout
     fig.update_layout(
         dragmode='drawrect' if mode == 'draw' else 'pan',
         newshape=dict(line=dict(color='red', width=3)),
@@ -594,7 +576,33 @@ def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None,
 def setup_callbacks(app, doc_processor, image_processor):
     """Настройка всех callbacks"""
     
-    # Callback: Быстрая загрузка PDF с анимацией загрузки
+    # Callback: Циклический поворот изображения
+    @app.callback(
+        [Output('rotation-angle-store', 'data'),
+         Output('rotation-status', 'children'),
+         Output('quick-rotation-btn', 'children')],
+        [Input('quick-rotation-btn', 'n_clicks')],
+        [State('rotation-angle-store', 'data')]
+    )
+    def rotate_image(n_clicks, current_angle):
+        if not n_clicks:
+            raise PreventUpdate
+        
+        new_angle = (current_angle + 90) % 360
+        
+        rotation_icons = {
+            0: "→",
+            90: "↓",
+            180: "←",
+            270: "↑"
+        }
+        
+        return new_angle, f"Текущий угол: {new_angle}°", [
+            html.I(className="fas fa-redo me-2"), 
+            f"Повернуть на 90° {rotation_icons.get(new_angle, '')}"
+        ]
+    
+    # Callback: Быстрая загрузка PDF
     @app.callback(
         [Output('quick-preview-panel', 'children'),
          Output('global-pdf-store', 'data'),
@@ -608,9 +616,8 @@ def setup_callbacks(app, doc_processor, image_processor):
             return no_update, no_update, True, ""
         
         try:
-            # Показываем статус загрузки
             loading_status = dbc.Spinner(
-                html.Small("Загрузка и обработка..."), 
+                html.Small("Загрузка..."), 
                 color="primary",
                 size="sm"
             )
@@ -621,10 +628,9 @@ def setup_callbacks(app, doc_processor, image_processor):
             images = image_processor.convert_pdf_from_bytes(decoded)
             
             if not images:
-                error = dbc.Alert("❌ Ошибка загрузки файла", color="danger", className="small")
+                error = dbc.Alert("❌ Ошибка загрузки", color="danger", className="small")
                 return None, None, True, error
             
-            # Сохраняем изображения
             images_b64 = []
             for img in images:
                 img_resized = image_processor.resize_image(img)
@@ -633,7 +639,6 @@ def setup_callbacks(app, doc_processor, image_processor):
                 img_b64 = base64.b64encode(buffer.getvalue()).decode()
                 images_b64.append(img_b64)
             
-            # Превью первой страницы
             preview = dbc.Card([
                 dbc.CardHeader([
                     html.I(className="fas fa-file-pdf me-2"),
@@ -710,7 +715,7 @@ def setup_callbacks(app, doc_processor, image_processor):
             logger.error(f"Ошибка отображения полей: {e}")
             raise PreventUpdate
     
-    # Callback: Быстрое распознавание с прогресс-баром
+    # Callback: Быстрое распознавание
     @app.callback(
         [Output('quick-results-panel', 'children'),
          Output('quick-progress-panel', 'children'),
@@ -718,7 +723,7 @@ def setup_callbacks(app, doc_processor, image_processor):
         [Input('quick-run-btn', 'n_clicks')],
         [State('global-pdf-store', 'data'),
          State('quick-config-select', 'value'),
-         State('quick-rotation', 'value'),
+         State('rotation-angle-store', 'data'),
          State('quick-enhance-check', 'value')]
     )
     def quick_run_ocr(n_clicks, pdf_data, config_id, rotation, enhance):
@@ -726,7 +731,6 @@ def setup_callbacks(app, doc_processor, image_processor):
             raise PreventUpdate
         
         try:
-            # Показываем прогресс
             progress = dbc.Progress(
                 value=10,
                 label="Инициализация...",
@@ -756,7 +760,6 @@ def setup_callbacks(app, doc_processor, image_processor):
                 result = doc_processor.extract_fields(img, config, uncertainty_engine)
                 result['page'] = page_num + 1
                 
-                # Миниатюры полей
                 result['field_thumbnails'] = {}
                 for field_config in config.fields:
                     field_name = field_config['name']
@@ -771,7 +774,6 @@ def setup_callbacks(app, doc_processor, image_processor):
                 
                 all_results.append(result)
             
-            # Создаем интерфейс результатов
             results_ui = create_results_interface(all_results, config)
             
             success_status = dbc.Alert([
@@ -785,11 +787,11 @@ def setup_callbacks(app, doc_processor, image_processor):
             logger.error(f"Ошибка OCR: {e}", exc_info=True)
             error = dbc.Alert([
                 html.I(className="fas fa-exclamation-triangle me-2"),
-                f"Ошибка распознавания: {str(e)}"
+                f"Ошибка: {str(e)}"
             ], color="danger")
             return error, error, None
     
-    # Callback: Интерактивная разметка - загрузка изображения
+    # Callback: Интерактивная разметка
     @app.callback(
         [Output('markup-interactive-image', 'figure'),
          Output('current-image-store', 'data'),
@@ -806,7 +808,7 @@ def setup_callbacks(app, doc_processor, image_processor):
                 xaxis=dict(visible=False),
                 yaxis=dict(visible=False),
                 annotations=[{
-                    'text': 'Загрузите изображение для начала работы',
+                    'text': 'Загрузите изображение',
                     'xref': 'paper',
                     'yref': 'paper',
                     'showarrow': False,
@@ -826,14 +828,12 @@ def setup_callbacks(app, doc_processor, image_processor):
             img.save(buffer, format='PNG')
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
-            # Загружаем boxes из конфигурации если выбрана
             boxes = {}
             if base_config and base_config != 'empty':
                 config = get_config(base_config)
                 for field in config.fields:
                     boxes[field['name']] = field.get('box')
             
-            # Создаем интерактивную фигуру
             fig = create_interactive_plotly_image(img, boxes, mode)
             
             info = dbc.Alert([
@@ -849,7 +849,7 @@ def setup_callbacks(app, doc_processor, image_processor):
             error_info = dbc.Alert(f"Ошибка: {str(e)}", color="danger", className="small")
             return empty_fig, None, error_info
     
-    # Callback: Отображение координат нарисованных областей
+    # Callback: Отображение координат
     @app.callback(
         [Output('markup-coordinates-display', 'children'),
          Output('markup-status-badge', 'children'),
@@ -858,9 +858,8 @@ def setup_callbacks(app, doc_processor, image_processor):
     )
     def display_drawn_coordinates(relayout_data):
         if not relayout_data:
-            return "", "Готов к работе", "secondary"
+            return "", "Готов", "secondary"
         
-        # Проверяем наличие нарисованных фигур
         if 'shapes' in relayout_data:
             shapes = relayout_data['shapes']
             if shapes:
@@ -888,20 +887,41 @@ def setup_callbacks(app, doc_processor, image_processor):
         
         return "", "Рисуйте области", "warning"
     
-    # Callback: Принятие исправлений
+    # Callback: Одобрение страницы
     @app.callback(
-        Output({'type': 'field-status', 'page': MATCH, 'field': MATCH}, 'children'),
-        [Input({'type': 'accept-btn', 'page': MATCH, 'field': MATCH}, 'n_clicks')],
+        Output({'type': 'page-approval-status', 'page': MATCH}, 'children'),
+        [Input({'type': 'approve-page-btn', 'page': MATCH}, 'n_clicks')],
+        [State({'type': 'approve-page-btn', 'page': MATCH}, 'id')],
         prevent_initial_call=True
     )
-    def accept_field_correction(n_clicks):
+    def approve_page(n_clicks, btn_id):
         if not n_clicks:
             raise PreventUpdate
         
-        return html.Span([
-            html.I(className="fas fa-check-circle text-success me-1"),
-            "✓"
-        ])
+        page_num = btn_id['page']
+        
+        return dbc.Alert([
+            html.I(className="fas fa-check-circle me-2"),
+            f"Страница {page_num} одобрена"
+        ], color="success", className="mb-0 small")
+    
+    # Callback: Одобрение всех страниц
+    @app.callback(
+        Output('all-pages-approval-status', 'children'),
+        [Input('approve-all-pages-btn', 'n_clicks')],
+        [State('global-results-store', 'data')],
+        prevent_initial_call=True
+    )
+    def approve_all_pages(n_clicks, results):
+        if not n_clicks or not results:
+            raise PreventUpdate
+        
+        total_pages = len(results)
+        
+        return dbc.Alert([
+            html.I(className="fas fa-check-double me-2"),
+            f"Все {total_pages} страниц одобрены"
+        ], color="success", className="mb-0")
 
 
 def create_results_interface(results: List[Dict], config) -> html.Div:
@@ -919,7 +939,7 @@ def create_results_interface(results: List[Dict], config) -> html.Div:
 
 
 def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
-    """Создание редактируемой таблицы результатов"""
+    """Создание редактируемой таблицы с увеличенными миниатюрами"""
     page_num = page_result['page']
     uncertainties = page_result.get('uncertainties', [])
     uncertain_fields = {u['field'] for u in uncertainties}
@@ -933,6 +953,10 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
         
         if field_name == 'series_and_number':
             value = f"{page_result.get('series', '')} {page_result.get('number', '')}".strip()
+        elif field_name == 'series':
+            value = page_result.get('series', '')
+        elif field_name == 'number':
+            value = page_result.get('number', '')
         else:
             value = page_result.get(field_name, '')
         
@@ -945,14 +969,14 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
             html.Td([
                 html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
                 field_display
-            ], style={'width': '20%'}),
+            ], style={'width': '15%', 'fontSize': '0.9rem'}),
             html.Td([
                 html.Img(
                     src=f"data:image/png;base64,{thumb_b64}",
-                    style={'maxWidth': '120px', 'maxHeight': '80px', 'objectFit': 'contain'},
+                    style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
                     className="border"
                 ) if thumb_b64 else "—"
-            ], style={'width': '15%', 'textAlign': 'center'}),
+            ], style={'width': '20%', 'textAlign': 'center'}),
             html.Td([
                 dcc.Input(
                     id={'type': 'field-input', 'page': page_num, 'field': field_name},
@@ -960,48 +984,53 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                     style={
                         'width': '100%', 
                         'backgroundColor': '#fff3cd' if is_uncertain else '#fff',
-                        'padding': '8px'
+                        'padding': '6px 10px',
+                        'fontSize': '0.9rem'
                     },
-                    className="form-control"
+                    className="form-control form-control-sm"
                 )
-            ], style={'width': '45%'}),
-            html.Td([
-                dbc.Button(
-                    "✓",
-                    id={'type': 'accept-btn', 'page': page_num, 'field': field_name},
-                    color="success",
-                    size="sm",
-                    className="me-2"
-                ),
-                html.Span(
-                    id={'type': 'field-status', 'page': page_num, 'field': field_name}
-                )
-            ], style={'width': '20%'})
+            ], style={'width': '65%'})
         ], className=row_class)
         
         table_rows.append(row)
     
     return dbc.Card([
         dbc.CardHeader([
-            html.I(className="fas fa-file-alt me-2"),
-            f"Страница {page_num}"
+            dbc.Row([
+                dbc.Col([
+                    html.I(className="fas fa-file-alt me-2"),
+                    f"Страница {page_num}"
+                ], width=8),
+                dbc.Col([
+                    dbc.Button(
+                        [html.I(className="fas fa-check me-2"), "Одобрить страницу"],
+                        id={'type': 'approve-page-btn', 'page': page_num},
+                        color="success",
+                        size="sm",
+                        className="float-end"
+                    )
+                ], width=4)
+            ])
         ], className="fw-bold"),
         dbc.CardBody([
             dbc.Table([
                 html.Thead([html.Tr([
-                    html.Th("Поле"),
-                    html.Th("Превью"),
-                    html.Th("Значение"),
-                    html.Th("Действие")
+                    html.Th("Поле", style={'fontSize': '0.85rem'}),
+                    html.Th("Превью", style={'fontSize': '0.85rem'}),
+                    html.Th("Значение", style={'fontSize': '0.85rem'})
                 ])]),
                 html.Tbody(table_rows)
-            ], bordered=True, hover=True, responsive=True)
+            ], bordered=True, hover=True, responsive=True, size='sm'),
+            html.Div(
+                id={'type': 'page-approval-status', 'page': page_num},
+                className="mt-2"
+            )
         ])
-    ], className="mb-4 result-card")
+    ], className="mb-3 result-card")
 
 
 def create_summary_panel(results: List[Dict], config) -> dbc.Card:
-    """Создание сводной панели с экспортом"""
+    """Создание сводной панели с кнопкой одобрения всех страниц"""
     total_pages = len(results)
     total_uncertainties = sum(len(r.get('uncertainties', [])) for r in results)
     
@@ -1036,37 +1065,50 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
                         html.I(className="fas fa-file-alt me-2"),
                         f"{total_pages}"
                     ]),
-                    html.P("Обработано страниц", className="text-muted"),
+                    html.P("Обработано страниц", className="text-muted small"),
                     html.Hr(),
-                    html.P(f"📋 Конфигурация: {config.name}", className="small"),
+                    html.P(f"📋 {config.name}", className="small"),
                     html.P([
                         html.I(className="fas fa-exclamation-triangle text-warning me-1") if total_uncertainties > 0 else html.I(className="fas fa-check-circle text-success me-1"),
                         f"{total_uncertainties} полей требуют проверки" if total_uncertainties > 0 else "Все поля распознаны уверенно"
                     ], className="small")
-                ], width=6),
+                ], width=5),
                 dbc.Col([
-                    html.H6("Экспорт результатов:", className="mb-3"),
+                    html.H6("Экспорт:", className="mb-2 small"),
                     html.A(
                         dbc.Button([
                             html.I(className="fas fa-file-csv me-2"), 
-                            "Скачать CSV"
+                            "CSV"
                         ], 
                         color="success", 
+                        size="sm",
                         className="w-100 mb-2 export-btn"),
                         href=f"data:text/csv;charset=utf-8;base64,{csv_b64}",
-                        download=f"ocr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                        download=f"ocr_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
                     ),
                     html.A(
                         dbc.Button([
                             html.I(className="fas fa-file-code me-2"), 
-                            "Скачать JSON"
+                            "JSON"
                         ], 
                         color="info", 
+                        size="sm",
                         className="w-100 export-btn"),
                         href=f"data:application/json;base64,{json_b64}",
-                        download=f"ocr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                        download=f"ocr_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                     )
-                ], width=6)
+                ], width=4),
+                dbc.Col([
+                    html.H6("Действия:", className="mb-2 small"),
+                    dbc.Button(
+                        [html.I(className="fas fa-check-double me-2"), "Одобрить всё"],
+                        id='approve-all-pages-btn',
+                        color="primary",
+                        size="lg",
+                        className="w-100"
+                    ),
+                    html.Div(id='all-pages-approval-status', className="mt-2")
+                ], width=3)
             ])
         ])
     ], className="mb-4 result-card")
