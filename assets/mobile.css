@@ -1,28 +1,248 @@
-/* Дополнительные стили для мобильных устройств */
-@media (max-width: 576px) {
-    .container-fluid {
-        padding: 10px;
+/* ===== Адаптивные стили для мобильных устройств ===== */
+
+@media (max-width: 768px) {
+    /* Контейнер */
+    .container, .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
     }
     
-    .card {
+    /* Заголовок */
+    .main-header {
+        padding: 20px 15px;
+    }
+    
+    .main-header h1 {
+        font-size: 1.5rem !important;
+    }
+    
+    .main-header h1 .fa, 
+    .main-header h1 .fas {
+        font-size: 1.3rem;
+    }
+    
+    .main-header p {
+        font-size: 0.9rem;
+    }
+    
+    /* Вкладки */
+    .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 0.85rem;
+        white-space: nowrap;
+    }
+    
+    /* Карточки */
+    .result-card {
         margin-bottom: 15px;
     }
     
+    .card-header {
+        font-size: 0.9rem;
+        padding: 10px 15px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+    
+    /* Кнопки */
     .btn {
+        font-size: 0.9rem;
+        padding: 10px 15px;
+    }
+    
+    .btn-lg {
+        font-size: 1rem;
+        padding: 12px 20px;
+    }
+    
+    /* Таблицы */
+    .table {
+        font-size: 0.85rem;
+    }
+    
+    .table thead {
+        display: none;
+    }
+    
+    .table tbody tr {
+        display: block;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        background: white;
+    }
+    
+    .table tbody td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border: none;
+    }
+    
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        flex-basis: 40%;
+    }
+    
+    /* Превью изображений */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Upload области */
+    .upload-area {
+        padding: 30px 15px !important;
+    }
+    
+    .upload-area .fa-3x {
+        font-size: 2rem !important;
+    }
+    
+    .upload-area h5 {
+        font-size: 1rem;
+    }
+    
+    /* Inputs */
+    input.form-control {
+        font-size: 16px; /* Предотвращает зум на iOS */
+    }
+    
+    /* Dropdown */
+    .dropdown {
         width: 100%;
-        margin-bottom: 10px;
     }
     
-    .table-responsive {
-        font-size: 0.8rem;
-    }
-    
+    /* Модальные окна */
     .modal-dialog {
         margin: 10px;
     }
     
-    .upload-area {
-        height: 120px !important;
+    .modal-content {
+        border-radius: 10px;
+    }
+    
+    /* Прогресс-бары */
+    .progress {
+        height: 25px;
+        font-size: 0.8rem;
+    }
+    
+    /* Экспорт кнопки */
+    .export-btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    /* Сетка статистики */
+    .stat-card {
+        margin-bottom: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+    }
+    
+    /* Graph для интерактивной разметки */
+    #markup-interactive-image {
+        height: 50vh !important;
+    }
+    
+    /* Поля разметки */
+    .markup-fields-panel input {
+        font-size: 14px;
+    }
+    
+    /* Alerts */
+    .alert {
         font-size: 0.9rem;
+        padding: 10px;
+    }
+    
+    /* Badges */
+    .badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    
+    /* Row spacing */
+    .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+    
+    .row > * {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    
+    /* Убираем тени на мобильных для производительности */
+    .result-card:hover {
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transform: none;
+    }
+    
+    /* Отключаем сложные анимации */
+    * {
+        animation-duration: 0.1s !important;
+        transition-duration: 0.1s !important;
+    }
+}
+
+/* Ландшафтная ориентация на телефонах */
+@media (max-width: 768px) and (orientation: landscape) {
+    .main-header {
+        padding: 15px;
+    }
+    
+    .main-header h1 {
+        font-size: 1.3rem !important;
+    }
+    
+    #markup-interactive-image {
+        height: 60vh !important;
+    }
+}
+
+/* Планшеты (портрет) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .main-header h1 {
+        font-size: 2rem;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 10px 18px;
+        font-size: 0.95rem;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 375px) {
+    .main-header h1 {
+        font-size: 1.2rem !important;
+    }
+    
+    .btn {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
     }
 }
