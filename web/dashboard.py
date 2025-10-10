@@ -1,6 +1,6 @@
 """
 Dash Dashboard для OCR платформы
-Версия: 4.0 (Улучшенный UX/UI - компактная левая панель, группировка конфигураций)
+Версия: 5.0 (Реализация применения изменений, JSON редактор, улучшенный UX)
 """
 
 
@@ -47,7 +47,7 @@ def create_dash_app(tesseract_cmd: Optional[str] = None):
             dbc.themes.BOOTSTRAP,
             dbc.icons.FONT_AWESOME
         ],
-        title="OCR Платформа",
+        title="Document OCR Platform",
         suppress_callback_exceptions=True
     )
     
@@ -64,12 +64,12 @@ def create_main_layout() -> html.Div:
     """Создание главного layout"""
     return dbc.Container([
         dbc.Alert([
-            html.H1([
-                html.I(className="fas fa-brain me-3"),
-                "OCR Платформа для документов об образовании"
-            ], className="mb-2"),
-            html.P("Интерактивное распознавание с возможностью разметки и редактирования", className="mb-0")
-        ], color="primary", className="mb-4 main-header"),
+            html.H4("Document OCR Platform", className="mb-1"),
+            html.Small([
+                "by ",
+                html.A("z_loy", href="https://t.me/z_loy", target="_blank", className="text-white")
+            ])
+        ], color="primary", className="mb-3"),
         
         dbc.Tabs([
             dbc.Tab(
@@ -93,6 +93,7 @@ def create_main_layout() -> html.Div:
         dcc.Store(id='global-results-store'),
         dcc.Store(id='rotation-angle-store', data=0),
         dcc.Store(id='current-image-store'),
+        dcc.Store(id='json-editor-store'),
         
     ], fluid=True, className="py-4")
 
@@ -638,6 +639,69 @@ def setup_callbacks(app, doc_processor, image_processor):
             logger.error(f"Ошибка OCR: {e}", exc_info=True)
             return dbc.Alert(f"Ошибка: {str(e)}", color="danger"), "", None
     
+    # Callback: Обновление поля
+    @app.callback(
+        Output('global-results-store', 'data', allow_duplicate=True),
+        [Input({'type': 'field-input', 'page': ALL, 'field': ALL}, 'value')],
+        [State('global-results-store', 'data'),
+         State({'type': 'field-input', 'page': ALL, 'field': ALL}, 'id')],
+        prevent_initial_call=True
+    )
+    def update_field_values(values, current_results, ids):
+        if not current_results or not values:
+            raise PreventUpdate
+        
+        try:
+            for i, (value, id_dict) in enumerate(zip(values, ids)):
+                page_idx = id_dict['page'] - 1
+                field_name = id_dict['field']
+                
+                if page_idx < len(current_results):
+                    current_results[page_idx][field_name] = value
+            
+            return current_results
+        except Exception as e:
+            logger.error(f"Ошибка обновления полей: {e}")
+            raise PreventUpdate
+    
+    # Callback: Одобрение страницы (применение изменений)
+    @app.callback(
+        Output({'type': 'page-approval-status', 'page': MATCH}, 'children'),
+        [Input({'type': 'approve-page-btn', 'page': MATCH}, 'n_clicks')],
+        [State('global-results-store', 'data'),
+         State({'type': 'approve-page-btn', 'page': MATCH}, 'id')],
+        prevent_initial_call=True
+    )
+    def approve_page(n_clicks, results, btn_id):
+        if not n_clicks:
+            raise PreventUpdate
+        
+        page_num = btn_id['page']
+        return dbc.Alert([
+            html.I(className="fas fa-check-circle me-2"), 
+            f"Страница {page_num} одобрена"
+        ], color="success", className="small mt-2")
+    
+    # Callback: Одобрение всех (применение всех изменений)
+    @app.callback(
+        [Output('all-pages-approval-status', 'children'),
+         Output('json-editor-store', 'data')],
+        [Input('approve-all-pages-btn', 'n_clicks')],
+        [State('global-results-store', 'data')],
+        prevent_initial_call=True
+    )
+    def approve_all_pages(n_clicks, results):
+        if not n_clicks or not results:
+            raise PreventUpdate
+        
+        # Обновляем JSON для редактора
+        json_data = json.dumps(results, ensure_ascii=False, indent=2)
+        
+        return dbc.Alert([
+            html.I(className="fas fa-check-double me-2"), 
+            f"Все {len(results)} стр. одобрены"
+        ], color="success"), json_data
+    
     # Callback: Интерактивная разметка
     @app.callback(
         [Output('markup-interactive-image', 'figure'),
@@ -703,43 +767,52 @@ def setup_callbacks(app, doc_processor, image_processor):
                 ], color="info"), f"{len(shapes)}", "success"
         
         return "", "Рисуйте", "warning"
-    
-    # Callback: Одобрение страницы
-    @app.callback(
-        Output({'type': 'page-approval-status', 'page': MATCH}, 'children'),
-        [Input({'type': 'approve-page-btn', 'page': MATCH}, 'n_clicks')],
-        prevent_initial_call=True
-    )
-    def approve_page(n_clicks):
-        if not n_clicks:
-            raise PreventUpdate
-        return dbc.Alert([html.I(className="fas fa-check-circle me-2"), "Одобрено"], color="success", className="small")
-    
-    # Callback: Одобрение всех
-    @app.callback(
-        Output('all-pages-approval-status', 'children'),
-        [Input('approve-all-pages-btn', 'n_clicks')],
-        [State('global-results-store', 'data')],
-        prevent_initial_call=True
-    )
-    def approve_all_pages(n_clicks, results):
-        if not n_clicks or not results:
-            raise PreventUpdate
-        return dbc.Alert([html.I(className="fas fa-check-double me-2"), f"Все {len(results)} стр."], color="success")
 
 
 
 def create_results_interface(results: List[Dict], config) -> html.Div:
     """Создание интерфейса результатов"""
+    pages = [create_editable_page_table(r, config) for r in results]
+    
     return html.Div([
         create_summary_panel(results, config),
         html.Hr()
-    ] + [create_editable_page_table(r, config) for r in results])
+    ] + pages + [
+        # Кнопка "Одобрить всё" внизу
+        dbc.Card([
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Button(
+                            [html.I(className="fas fa-check-double me-2"), "Одобрить всё"],
+                            id='approve-all-pages-btn',
+                            color="success",
+                            size="lg",
+                            className="w-100"
+                        ),
+                        html.Div(id='all-pages-approval-status', className="mt-2")
+                    ], width=6),
+                    dbc.Col([
+                        dbc.Button(
+                            [html.I(className="fas fa-edit me-2"), "Редактировать JSON"],
+                            id='edit-json-btn',
+                            color="info",
+                            size="lg",
+                            className="w-100"
+                        )
+                    ], width=6)
+                ])
+            ])
+        ], className="mb-3 result-card"),
+        
+        # JSON редактор
+        html.Div(id='json-editor-panel')
+    ])
 
 
 
 def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
-    """Таблица с ШИРОКИМ превью (50%) и узким полем значения (25%)"""
+    """Таблица с ШИРОКИМ превью (50%) и узким полем значения (38%)"""
     page_num = page_result['page']
     uncertainties = page_result.get('uncertainties', [])
     uncertain_fields = {u['field'] for u in uncertainties}
@@ -839,18 +912,8 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
     
     return dbc.Card([
         dbc.CardHeader([
-            dbc.Row([
-                dbc.Col([html.I(className="fas fa-file-alt me-2"), f"Страница {page_num}"], width=8),
-                dbc.Col([
-                    dbc.Button(
-                        [html.I(className="fas fa-check me-2"), "Одобрить"],
-                        id={'type': 'approve-page-btn', 'page': page_num},
-                        color="success",
-                        size="sm",
-                        className="float-end"
-                    )
-                ], width=4)
-            ])
+            html.I(className="fas fa-file-alt me-2"), 
+            f"Страница {page_num}"
         ]),
         dbc.CardBody([
             dbc.Table([
@@ -861,7 +924,20 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                 ])]),
                 html.Tbody(table_rows)
             ], bordered=True, hover=True, size='sm'),
-            html.Div(id={'type': 'page-approval-status', 'page': page_num}, className="mt-2")
+            
+            # Кнопка "Одобрить" НИЖЕ таблицы
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        [html.I(className="fas fa-check me-2"), f"Одобрить страницу {page_num}"],
+                        id={'type': 'approve-page-btn', 'page': page_num},
+                        color="success",
+                        size="sm",
+                        className="w-100 mt-2"
+                    ),
+                    html.Div(id={'type': 'page-approval-status', 'page': page_num})
+                ])
+            ])
         ])
     ], className="mb-3 result-card")
 
@@ -904,7 +980,7 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
                         html.I(className="fas fa-exclamation-triangle text-warning me-1") if total_uncertainties > 0 else html.I(className="fas fa-check-circle text-success me-1"),
                         f"{total_uncertainties} проверки" if total_uncertainties > 0 else "Всё ОК"
                     ], className="small")
-                ], width=5),
+                ], width=6),
                 dbc.Col([
                     html.A(
                         dbc.Button([html.I(className="fas fa-file-csv me-2"), "CSV"], color="success", size="sm", className="w-100 mb-2"),
@@ -916,20 +992,72 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
                         href=f"data:application/json;base64,{json_b64}",
                         download=f"ocr_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                     )
-                ], width=4),
-                dbc.Col([
-                    dbc.Button(
-                        [html.I(className="fas fa-check-double me-2"), "Одобрить всё"],
-                        id='approve-all-pages-btn',
-                        color="primary",
-                        size="lg",
-                        className="w-100"
-                    ),
-                    html.Div(id='all-pages-approval-status', className="mt-2")
-                ], width=3)
+                ], width=6)
             ])
         ])
     ], className="mb-4 result-card")
+
+
+
+# Callback для JSON редактора
+@app.callback(
+    Output('json-editor-panel', 'children'),
+    [Input('edit-json-btn', 'n_clicks')],
+    [State('global-results-store', 'data')],
+    prevent_initial_call=True
+)
+def show_json_editor(n_clicks, results):
+    if not n_clicks or not results:
+        raise PreventUpdate
+    
+    json_str = json.dumps(results, ensure_ascii=False, indent=2)
+    
+    return dbc.Card([
+        dbc.CardHeader([
+            html.I(className="fas fa-code me-2"),
+            "JSON Редактор"
+        ]),
+        dbc.CardBody([
+            dcc.Textarea(
+                id='json-textarea',
+                value=json_str,
+                style={'width': '100%', 'height': '400px', 'fontFamily': 'monospace'},
+                className="form-control"
+            ),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Button(
+                        [html.I(className="fas fa-save me-2"), "Применить изменения"],
+                        id='apply-json-btn',
+                        color="primary",
+                        size="sm",
+                        className="mt-2"
+                    )
+                ], width=3),
+                dbc.Col([
+                    html.Div(id='json-status')
+                ], width=9)
+            ])
+        ])
+    ], className="mb-3 result-card")
+
+
+@app.callback(
+    [Output('global-results-store', 'data', allow_duplicate=True),
+     Output('json-status', 'children')],
+    [Input('apply-json-btn', 'n_clicks')],
+    [State('json-textarea', 'value')],
+    prevent_initial_call=True
+)
+def apply_json_changes(n_clicks, json_str):
+    if not n_clicks:
+        raise PreventUpdate
+    
+    try:
+        new_results = json.loads(json_str)
+        return new_results, dbc.Alert("✓ Изменения применены", color="success", className="mt-2")
+    except json.JSONDecodeError as e:
+        return no_update, dbc.Alert(f"❌ Ошибка JSON: {str(e)}", color="danger", className="mt-2")
 
 
 
