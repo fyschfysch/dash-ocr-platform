@@ -3,11 +3,13 @@ Dash Dashboard для OCR платформы
 Версия: 4.0 (Улучшенный UX/UI - компактная левая панель, группировка конфигураций)
 """
 
+
 import dash
 from dash import dcc, html, Input, Output, State, ALL, MATCH, callback_context, no_update
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
+
 
 from PIL import Image
 import pandas as pd
@@ -20,14 +22,18 @@ from typing import Dict, List, Optional, Any
 import logging
 import json
 
+
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 
 from core.ocr_engine import DocumentProcessor
 from core.image_processor import AdvancedImageProcessor
 from core.config import get_config, get_available_configs, UncertaintyEngine, get_field_description
 
+
 logger = logging.getLogger(__name__)
+
 
 
 def create_dash_app(tesseract_cmd: Optional[str] = None):
@@ -51,6 +57,7 @@ def create_dash_app(tesseract_cmd: Optional[str] = None):
     logger.info("Dash приложение инициализировано")
     
     return app
+
 
 
 def create_main_layout() -> html.Div:
@@ -88,6 +95,7 @@ def create_main_layout() -> html.Div:
         dcc.Store(id='current-image-store'),
         
     ], fluid=True, className="py-4")
+
 
 
 def create_quick_ocr_tab() -> html.Div:
@@ -186,6 +194,7 @@ def create_quick_ocr_tab() -> html.Div:
     ])
 
 
+
 def create_interactive_markup_tab() -> html.Div:
     """Режим интерактивной разметки"""
     return html.Div([
@@ -271,6 +280,7 @@ def create_interactive_markup_tab() -> html.Div:
     ])
 
 
+
 def create_batch_processing_tab() -> html.Div:
     """Режим пакетной обработки"""
     return html.Div([
@@ -318,50 +328,42 @@ def create_batch_processing_tab() -> html.Div:
     ])
 
 
+
 def get_config_options_grouped() -> List[Dict]:
-    """Получение опций конфигураций С ГРУППИРОВКОЙ и сокращенными названиями"""
+    """Получение опций БЕЗ разделителей, компактный формат"""
     configs = get_available_configs()
-    
-    # Группируем по организациям
-    grouped = {}
-    for c in configs:
-        org = c['organization']
-        if org not in grouped:
-            grouped[org] = []
-        grouped[org].append(c)
     
     options = []
     
-    org_names = {
-        '1T': '1Т (Первое сентября)',
-        'ROSNOU': 'РОСНОУ',
-        'FINUNIVERSITY': 'Финансовый университет'
-    }
-    
-    for org_code, org_configs in grouped.items():
-        # Заголовок группы
-        org_display = org_names.get(org_code, org_code)
-        options.append({
-            'label': f'━━━ {org_display} ━━━',
-            'value': f'_header_{org_code}',
-            'disabled': True
-        })
+    for c in configs:
+        name = c['name']
         
-        # Конфигурации с сокращенными названиями
-        for c in org_configs:
-            name = c['name']
-            name = name.replace('о повышении квалификации', '(ПК)')
-            name = name.replace('о профессиональной переподготовке', '(ПП)')
-            name = name.replace('Удостоверение', 'Уд.')
-            name = name.replace('Диплом', 'Дип.')
-            name = name.replace('Финансового университета', 'ФинУнив.')
-            
-            options.append({
-                'label': f"  {name}",
-                'value': c['id']
-            })
+        # Сокращаем названия
+        name = name.replace('о повышении квалификации', 'ПК')
+        name = name.replace('о профессиональной переподготовке', 'ПП')
+        name = name.replace('Удостоверение', 'Уд.')
+        name = name.replace('Диплом', 'Дип.')
+        name = name.replace('(вариант 1)', 'v1')
+        name = name.replace('(вариант 2)', 'v2')
+        name = name.replace('Финансового университета', 'ФинУнив.')
+        
+        # Убираем лишние скобки
+        name = name.replace('(', '').replace(')', '')
+        
+        # Префикс организации
+        org_prefix = {
+            '1T': '1Т',
+            'ROSNOU': 'РОСНОУ',
+            'FINUNIVERSITY': 'ФинУнив.'
+        }.get(c['organization'], c['organization'])
+        
+        options.append({
+            'label': f"{name} {org_prefix}",
+            'value': c['id']
+        })
     
     return options
+
 
 
 def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None) -> go.Figure:
@@ -404,6 +406,7 @@ def create_interactive_plotly_image(img: Image.Image, boxes: Dict = None) -> go.
     )
     
     return fig
+
 
 
 def setup_callbacks(app, doc_processor, image_processor):
@@ -487,7 +490,7 @@ def setup_callbacks(app, doc_processor, image_processor):
             if new_angle:
                 img = image_processor.rotate_image(img, new_angle)
             
-            if config_id and not config_id.startswith('_header_'):
+            if config_id:
                 config = get_config(config_id)
                 img = doc_processor.display_image_with_boxes(img, config.fields)
             
@@ -496,7 +499,7 @@ def setup_callbacks(app, doc_processor, image_processor):
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
             badges = [dbc.Badge(f"{new_angle}°", color="warning", className="ms-2")]
-            if config_id and not config_id.startswith('_header_'):
+            if config_id:
                 config = get_config(config_id)
                 badges.append(dbc.Badge(config.name[:30], color="info", className="ms-2"))
             
@@ -533,7 +536,7 @@ def setup_callbacks(app, doc_processor, image_processor):
         prevent_initial_call=True
     )
     def show_fields_on_config_select(config_id, pdf_data, filename, rotation):
-        if not config_id or not pdf_data or config_id.startswith('_header_'):
+        if not config_id or not pdf_data:
             raise PreventUpdate
         
         try:
@@ -591,7 +594,7 @@ def setup_callbacks(app, doc_processor, image_processor):
          State('quick-enhance-check', 'value')]
     )
     def quick_run_ocr(n_clicks, pdf_data, config_id, rotation, enhance):
-        if not n_clicks or not pdf_data or not config_id or config_id.startswith('_header_'):
+        if not n_clicks or not pdf_data or not config_id:
             raise PreventUpdate
         
         try:
@@ -660,7 +663,7 @@ def setup_callbacks(app, doc_processor, image_processor):
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
             boxes = {}
-            if base_config and base_config != 'empty' and not base_config.startswith('_header_'):
+            if base_config and base_config != 'empty':
                 config = get_config(base_config)
                 for field in config.fields:
                     boxes[field['name']] = field.get('box')
@@ -725,6 +728,7 @@ def setup_callbacks(app, doc_processor, image_processor):
         return dbc.Alert([html.I(className="fas fa-check-double me-2"), f"Все {len(results)} стр."], color="success")
 
 
+
 def create_results_interface(results: List[Dict], config) -> html.Div:
     """Создание интерфейса результатов"""
     return html.Div([
@@ -733,8 +737,9 @@ def create_results_interface(results: List[Dict], config) -> html.Div:
     ] + [create_editable_page_table(r, config) for r in results])
 
 
+
 def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
-    """Создание редактируемой таблицы"""
+    """Таблица с ШИРОКИМ превью (50%) и узким полем значения (25%)"""
     page_num = page_result['page']
     uncertainties = page_result.get('uncertainties', [])
     uncertain_fields = {u['field'] for u in uncertainties}
@@ -754,14 +759,14 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                 html.Td([
                     html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
                     "Серия"
-                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                ], style={'width': '12%', 'fontSize': '0.9rem'}),
                 html.Td([
                     html.Img(
                         src=f"data:image/png;base64,{thumb_b64}",
-                        style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
+                        style={'maxWidth': '100%', 'maxHeight': '150px', 'objectFit': 'contain'},
                         className="border"
                     ) if thumb_b64 else "—"
-                ], style={'width': '20%', 'textAlign': 'center'}, rowSpan=2),
+                ], style={'width': '50%', 'textAlign': 'center'}, rowSpan=2),
                 html.Td([
                     dcc.Input(
                         id={'type': 'field-input', 'page': page_num, 'field': 'series'},
@@ -774,7 +779,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                         },
                         className="form-control form-control-sm"
                     )
-                ], style={'width': '65%'})
+                ], style={'width': '38%'})
             ], className="table-warning" if is_uncertain else ""))
             
             number_value = page_result.get('number', '')
@@ -783,7 +788,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                 html.Td([
                     html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
                     "Номер"
-                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                ], style={'width': '12%', 'fontSize': '0.9rem'}),
                 html.Td([
                     dcc.Input(
                         id={'type': 'field-input', 'page': page_num, 'field': 'number'},
@@ -796,7 +801,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                         },
                         className="form-control form-control-sm"
                     )
-                ], style={'width': '65%'})
+                ], style={'width': '38%'})
             ], className="table-warning" if is_uncertain else ""))
         
         else:
@@ -809,14 +814,14 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                 html.Td([
                     html.I(className="fas fa-exclamation-triangle text-warning me-1") if is_uncertain else "",
                     field_display
-                ], style={'width': '15%', 'fontSize': '0.9rem'}),
+                ], style={'width': '12%', 'fontSize': '0.9rem'}),
                 html.Td([
                     html.Img(
                         src=f"data:image/png;base64,{thumb_b64}",
-                        style={'maxWidth': '200px', 'maxHeight': '120px', 'objectFit': 'contain'},
+                        style={'maxWidth': '100%', 'maxHeight': '150px', 'objectFit': 'contain'},
                         className="border"
                     ) if thumb_b64 else "—"
-                ], style={'width': '20%', 'textAlign': 'center'}),
+                ], style={'width': '50%', 'textAlign': 'center'}),
                 html.Td([
                     dcc.Input(
                         id={'type': 'field-input', 'page': page_num, 'field': field_name},
@@ -829,7 +834,7 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
                         },
                         className="form-control form-control-sm"
                     )
-                ], style={'width': '65%'})
+                ], style={'width': '38%'})
             ], className="table-warning" if is_uncertain else ""))
     
     return dbc.Card([
@@ -850,15 +855,16 @@ def create_editable_page_table(page_result: Dict, config) -> dbc.Card:
         dbc.CardBody([
             dbc.Table([
                 html.Thead([html.Tr([
-                    html.Th("Поле", style={'fontSize': '0.85rem'}),
-                    html.Th("Превью", style={'fontSize': '0.85rem'}),
-                    html.Th("Значение", style={'fontSize': '0.85rem'})
+                    html.Th("Поле", style={'fontSize': '0.85rem', 'width': '12%'}),
+                    html.Th("Превью", style={'fontSize': '0.85rem', 'width': '50%'}),
+                    html.Th("Значение", style={'fontSize': '0.85rem', 'width': '38%'})
                 ])]),
                 html.Tbody(table_rows)
             ], bordered=True, hover=True, size='sm'),
             html.Div(id={'type': 'page-approval-status', 'page': page_num}, className="mt-2")
         ])
     ], className="mb-3 result-card")
+
 
 
 def create_summary_panel(results: List[Dict], config) -> dbc.Card:
@@ -924,6 +930,7 @@ def create_summary_panel(results: List[Dict], config) -> dbc.Card:
             ])
         ])
     ], className="mb-4 result-card")
+
 
 
 if __name__ == '__main__':
