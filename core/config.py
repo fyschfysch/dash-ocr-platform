@@ -62,12 +62,6 @@ class UncertaintyEngine:
         elif field_name == 'full_name':
             return len(str(parsed_result).strip()) < config.get('min_name_length', 5)
         
-        elif field_name == 'series':
-            return len(str(parsed_result).strip()) < config.get('min_series_length', 2)
-        
-        elif field_name == 'number':
-            return len(str(parsed_result).strip()) < config.get('min_number_length', 4)
-        
         elif field_name == 'series_and_number':
             if isinstance(parsed_result, tuple) and len(parsed_result) >= 2:
                 series_length = len(str(parsed_result[0]))
@@ -95,14 +89,12 @@ DOCUMENT_CONFIGS = {
         document_type='certificate',
         fields=[
             {'name': 'full_name', 'box': (630, 280, 1150, 320)},
-            {'name': 'series', 'box': (207, 503, 270, 536)},
-            {'name': 'number', 'box': (280, 503, 380, 536)},
+            {'name': 'series_and_number', 'box': (207, 503, 380, 536)},  # ЕДИНОЕ поле
             {'name': 'registration_number', 'box': (320, 725, 425, 755)},
             {'name': 'issue_date', 'box': (150, 750, 440, 785)}
         ],
         patterns={
-            'series': OneTParsers.parse_series_only,
-            'number': OneTParsers.parse_number_only,
+            'series_and_number': OneTParsers.parse_series_number,
             'registration_number': OneTParsers.parse_reg_number,
             'issue_date': OneTParsers.parse_date_certificate
         },
@@ -115,14 +107,12 @@ DOCUMENT_CONFIGS = {
         document_type='diploma',
         fields=[
             {'name': 'full_name', 'box': (695, 262, 1120, 295)},
-            {'name': 'series', 'box': (240, 535, 290, 570)},
-            {'name': 'number', 'box': (295, 535, 355, 570)},
+            {'name': 'series_and_number', 'box': (240, 535, 355, 570)},  # ЕДИНОЕ поле
             {'name': 'registration_number', 'box': (315, 725, 430, 760)},
             {'name': 'issue_date', 'box': (200, 570, 410, 600)}
         ],
         patterns={
-            'series': OneTParsers.parse_series_only,
-            'number': OneTParsers.parse_number_only,
+            'series_and_number': OneTParsers.parse_series_number,
             'registration_number': OneTParsers.parse_reg_number,
             'issue_date': OneTParsers.parse_date_diploma
         },
@@ -178,7 +168,7 @@ DOCUMENT_CONFIGS = {
             {'name': 'issue_date', 'box': (885, 320, 1085, 350)}
         ],
         patterns={
-            'full_name': FinUnivParsers.parse_full_name_simple,
+            'full_name': lambda x: (x.strip(), len(x.strip()) < 8),
             'series_and_number': FinUnivParsers.parse_series_number_v1,
             'registration_number': FinUnivParsers.parse_reg_number_v1,
             'issue_date': FinUnivParsers.parse_date_from_text
@@ -197,7 +187,7 @@ DOCUMENT_CONFIGS = {
             {'name': 'issue_date', 'box': (930, 320, 1110, 365)}
         ],
         patterns={
-            'full_name': FinUnivParsers.parse_full_name_complex,
+            'full_name': lambda x: (x.strip(), len(x.strip()) < 8),
             'series_and_number': FinUnivParsers.parse_series_number_v2,
             'registration_number': FinUnivParsers.parse_reg_number_v2,
             'issue_date': FinUnivParsers.parse_date_from_text
@@ -216,12 +206,7 @@ def get_config(config_key: str) -> DocumentConfig:
 
 
 def get_available_configs() -> List[Dict[str, str]]:
-    """
-    Получение списка доступных конфигураций для Dashboard
-    
-    Returns:
-        List[Dict]: Список словарей с информацией о конфигурациях
-    """
+    """Получение списка доступных конфигураций для Dashboard"""
     configs = []
     for config_id, config in DOCUMENT_CONFIGS.items():
         configs.append({
@@ -234,19 +219,9 @@ def get_available_configs() -> List[Dict[str, str]]:
 
 
 def get_field_description(field_name: str) -> str:
-    """
-    Получение описания поля для отображения в интерфейсе
-    
-    Args:
-        field_name: Имя поля
-        
-    Returns:
-        str: Человекочитаемое описание поля
-    """
+    """Получение описания поля для отображения в интерфейсе"""
     descriptions = {
         'full_name': 'ФИО',
-        'series': 'Серия',
-        'number': 'Номер',
         'series_and_number': 'Серия и номер',
         'registration_number': 'Регистрационный номер',
         'issue_date': 'Дата выдачи'

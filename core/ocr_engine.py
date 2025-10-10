@@ -1,6 +1,6 @@
 """
-OCR движок с Tesseract для распознавания документов об образовании
-Использует AdvancedImageProcessor для обработки изображений
+OCR движок с Tesseract для распознавания документов
+Версия: 3.1 (Исправлено: config.fields вместо config.get)
 """
 
 import pytesseract
@@ -26,14 +26,13 @@ class OCREngine:
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
         
-        # Импортируем AdvancedImageProcessor
         from core.image_processor import AdvancedImageProcessor
         self.image_processor = AdvancedImageProcessor()
     
     def preprocess_region(self, region: Image.Image, ocr_params: Dict, 
                          field_name: str = "", config_org: str = "") -> Image.Image:
         """
-        Предобработка области для улучшения OCR с учетом типа поля
+        Предобработка области для улучшения OCR
         
         Args:
             region: Область изображения для распознавания
@@ -80,7 +79,7 @@ class OCREngine:
     def extract_text(self, img: Image.Image, box: Tuple[int, int, int, int],
                     field_name: str, config: Any) -> str:
         """
-        Извлечение текста из области изображения с адаптивными настройками
+        Извлечение текста из области изображения
         
         Args:
             img: Исходное изображение документа
@@ -147,7 +146,7 @@ class DocumentProcessor:
         
         Args:
             img: Изображение документа
-            config: Конфигурация документа с координатами полей
+            config: Конфигурация документа (объект DocumentConfig)
             uncertainty_engine: Движок оценки неуверенности распознавания
             
         Returns:
@@ -156,6 +155,7 @@ class DocumentProcessor:
         result = {}
         uncertainties = []
         
+        # ИСПРАВЛЕНО: config.fields вместо config.get('fields')
         for field_config in config.fields:
             box = field_config['box']
             field_name = field_config['name']
@@ -259,7 +259,6 @@ class DocumentProcessor:
                 return img.crop(box)
             else:
                 logger.warning(f"Некорректные координаты box: {box}")
-                # Возвращаем заглушку
                 return Image.new('RGB', (120, 80), 'lightgray')
         except Exception as e:
             logger.error(f"Ошибка вырезания миниатюры: {e}")

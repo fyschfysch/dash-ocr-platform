@@ -1,10 +1,10 @@
 """
-Продвинутый инструмент интерактивной разметки полей документов
-Обновлено: исправлены имена полей для совместимости с системой
+Инструмент интерактивной разметки полей документов
+Версия: 3.0 (Упрощенная и исправленная)
 """
 
 import dash
-from dash import dcc, html, Input, Output, State, ALL, MATCH, callback_context
+from dash import dcc, html, Input, Output, State, ALL, MATCH
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 from PIL import Image, ImageDraw, ImageFont
@@ -14,22 +14,16 @@ import json
 import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
 class MarkupTool:
-    """
-    Продвинутый инструмент для разметки полей с визуальным интерфейсом
-    """
+    """Инструмент для разметки полей документов"""
     
     def __init__(self):
-        # ИСПРАВЛЕНО: используем правильные имена полей с подчеркиванием
         self.default_fields = [
             {'name': 'full_name', 'display_name': 'ФИО'},
-            {'name': 'series', 'display_name': 'Серия'},
-            {'name': 'number', 'display_name': 'Номер'},
             {'name': 'series_and_number', 'display_name': 'Серия и номер'},
             {'name': 'registration_number', 'display_name': 'Регистрационный номер'},
             {'name': 'issue_date', 'display_name': 'Дата выдачи'}
@@ -37,52 +31,47 @@ class MarkupTool:
         
         self.colors = {
             'full_name': '#FF6B6B',
-            'series': '#4ECDC4',
-            'number': '#45B7D1',
-            'series_and_number': '#96CEB4',
+            'series_and_number': '#4ECDC4',
             'registration_number': '#FFEAA7',
             'issue_date': '#DFE6E9'
         }
         
-        logger.info("MarkupTool инициализирован с корректными именами полей")
+        logger.info("MarkupTool инициализирован")
     
     def create_markup_layout(self) -> html.Div:
-        """Создание полного layout для разметки"""
+        """Создание layout для разметки"""
         return html.Div([
             dbc.Alert([
                 html.H4([
                     html.I(className="fas fa-crosshairs me-2"),
-                    "Инструмент разметки полей документов"
+                    "Инструмент разметки полей"
                 ]),
                 html.P("Создайте новую конфигурацию или отредактируйте существующую", className="mb-0")
             ], color="info", className="mb-4"),
             
             dbc.Card([
-                dbc.CardHeader("Шаг 1: Настройка конфигурации", className="fw-bold"),
+                dbc.CardHeader("Настройка конфигурации"),
                 dbc.CardBody([
                     dbc.Row([
                         dbc.Col([
-                            html.Label("Название конфигурации:", className="fw-bold"),
+                            dbc.Label("Название:"),
                             dbc.Input(
                                 id='markup-config-name',
-                                placeholder="Например: МойВуз - Диплом 2024",
-                                className="mb-2"
+                                placeholder="Например: МГУ - Диплом 2024"
                             )
                         ], width=6),
-                        
                         dbc.Col([
-                            html.Label("Организация:", className="fw-bold"),
+                            dbc.Label("Организация:"),
                             dbc.Input(
                                 id='markup-org-name',
-                                placeholder="Например: MYUNIV",
-                                className="mb-2"
+                                placeholder="Например: MSU"
                             )
                         ], width=6)
-                    ]),
+                    ], className="mb-3"),
                     
                     dbc.Row([
                         dbc.Col([
-                            html.Label("Тип документа:", className="fw-bold"),
+                            dbc.Label("Тип документа:"),
                             dcc.Dropdown(
                                 id='markup-doc-type',
                                 options=[
@@ -93,13 +82,12 @@ class MarkupTool:
                                 placeholder="Выберите тип"
                             )
                         ], width=6),
-                        
                         dbc.Col([
-                            html.Label("Загрузить базовую конфигурацию:", className="fw-bold"),
+                            dbc.Label("Базовая конфигурация:"),
                             dcc.Dropdown(
-                                id='markup-base-config',
+                                id='markup-base-config-select',
                                 options=[
-                                    {'label': 'Пустая (с нуля)', 'value': 'empty'},
+                                    {'label': 'Пустая', 'value': 'empty'},
                                     {'label': '1Т - Удостоверение', 'value': '1T_CERTIFICATE'},
                                     {'label': '1Т - Диплом', 'value': '1T_DIPLOMA'},
                                     {'label': 'РОСНОУ - Диплом', 'value': 'ROSNOU_DIPLOMA'},
@@ -112,15 +100,14 @@ class MarkupTool:
             ], className="mb-4"),
             
             dbc.Card([
-                dbc.CardHeader("Шаг 2: Загрузка образца документа", className="fw-bold"),
+                dbc.CardHeader("Загрузка образца"),
                 dbc.CardBody([
                     dcc.Upload(
-                        id='markup-upload',
+                        id='markup-upload-sample',
                         children=dbc.Alert([
-                            html.I(className="fas fa-file-pdf fa-3x mb-3 text-primary"),
+                            html.I(className="fas fa-file-pdf fa-2x mb-3"),
                             html.Br(),
-                            html.H5("Перетащите PDF сюда или нажмите для выбора"),
-                            html.Small("Будет использована первая страница для разметки")
+                            html.H5("Загрузите PDF образец")
                         ], color="light", className="text-center py-4"),
                         style={
                             'borderWidth': '2px',
@@ -137,62 +124,62 @@ class MarkupTool:
             html.Div(id='markup-image-panel', className="mb-4"),
             
             dbc.Card([
-                dbc.CardHeader("Шаг 3: Разметка полей", className="fw-bold"),
+                dbc.CardHeader("Разметка полей"),
                 dbc.CardBody([
                     html.P([
                         html.I(className="fas fa-info-circle me-2"),
-                        "Введите координаты полей вручную. Координаты указываются для изображения с разрешением 300 DPI, масштабированного до макс. 1200px"
+                        "Введите координаты полей вручную или используйте визуальный редактор"
                     ], className="text-muted small"),
-                    
                     html.Div(id='markup-fields-list'),
-                    
-                    dbc.Button([
-                        html.I(className="fas fa-plus me-2"),
-                        "Добавить поле"
-                    ], id='add-field-btn', color="secondary", outline=True, size="sm", className="mt-2")
+                    dbc.Button(
+                        [html.I(className="fas fa-plus me-2"), "Добавить поле"],
+                        id='add-field-markup-btn',
+                        color="secondary",
+                        outline=True,
+                        size="sm",
+                        className="mt-2"
+                    )
                 ])
             ], className="mb-4"),
             
-            html.Div(id='markup-preview-panel', className="mb-4"),
+            html.Div(id='markup-preview-section', className="mb-4"),
             
             dbc.Card([
-                dbc.CardHeader("Шаг 4: Сохранение конфигурации", className="fw-bold"),
+                dbc.CardHeader("Экспорт конфигурации"),
                 dbc.CardBody([
-                    dbc.Row([
-                        dbc.Col([
-                            dbc.Button([
-                                html.I(className="fas fa-eye me-2"),
-                                "Предпросмотр"
-                            ], id='preview-config-btn', color="info", className="me-2"),
-                            
-                            dbc.Button([
-                                html.I(className="fas fa-download me-2"),
-                                "Экспортировать JSON"
-                            ], id='export-config-btn', color="primary")
-                        ])
-                    ])
+                    dbc.Button(
+                        [html.I(className="fas fa-eye me-2"), "Предпросмотр"],
+                        id='preview-markup-btn',
+                        color="info",
+                        className="me-2"
+                    ),
+                    dbc.Button(
+                        [html.I(className="fas fa-download me-2"), "Экспорт Python код"],
+                        id='export-markup-btn',
+                        color="success"
+                    )
                 ])
             ]),
             
-            dcc.Store(id='markup-image-store'),
-            dcc.Store(id='markup-boxes-store', data={}),
-            dcc.Store(id='markup-fields-store', data=[]),
+            dcc.Store(id='markup-image-data-store'),
+            dcc.Store(id='markup-boxes-data-store', data={}),
+            dcc.Store(id='markup-fields-data-store', data=[]),
             
             dbc.Modal([
-                dbc.ModalHeader("Экспорт конфигурации"),
+                dbc.ModalHeader("Python код конфигурации"),
                 dbc.ModalBody([
-                    html.Pre(id='config-json-display', style={'whiteSpace': 'pre-wrap', 'fontSize': '0.85rem'})
+                    html.Pre(id='config-python-code', style={'whiteSpace': 'pre-wrap', 'fontSize': '0.85rem'})
                 ]),
                 dbc.ModalFooter([
-                    dbc.Button("Скопировать", id='copy-json-btn', color="primary"),
-                    dbc.Button("Закрыть", id='close-export-modal', color="secondary")
+                    dbc.Button("Копировать", id='copy-code-markup-btn', color="primary"),
+                    dbc.Button("Закрыть", id='close-modal-markup', color="secondary")
                 ])
-            ], id='export-modal', size="xl", scrollable=True)
+            ], id='export-modal-markup', size="xl")
         ])
     
     def create_field_editor(self, field_name: str, field_display: str, 
                            box: Optional[Tuple] = None, color: str = '#000000') -> dbc.Card:
-        """Создание редактора для одного поля с визуальными элементами"""
+        """Создание редактора для поля"""
         return dbc.Card([
             dbc.CardBody([
                 dbc.Row([
@@ -208,58 +195,54 @@ class MarkupTool:
                                     'marginRight': '10px'
                                 }
                             ),
-                            html.Strong(field_display, className="align-middle")
+                            html.Strong(field_display)
                         ])
                     ], width=3),
                     
                     dbc.Col([
                         dbc.InputGroup([
-                            dbc.InputGroupText("X1", style={'fontSize': '0.8rem'}),
+                            dbc.InputGroupText("X1"),
                             dbc.Input(
-                                id={'type': 'box-x1', 'field': field_name},
+                                id={'type': 'box-x1-markup', 'field': field_name},
                                 type='number',
                                 value=box[0] if box else 0,
-                                size='sm',
-                                style={'width': '80px'}
+                                size='sm'
                             )
                         ], size='sm')
                     ], width=2),
                     
                     dbc.Col([
                         dbc.InputGroup([
-                            dbc.InputGroupText("Y1", style={'fontSize': '0.8rem'}),
+                            dbc.InputGroupText("Y1"),
                             dbc.Input(
-                                id={'type': 'box-y1', 'field': field_name},
+                                id={'type': 'box-y1-markup', 'field': field_name},
                                 type='number',
                                 value=box[1] if box else 0,
-                                size='sm',
-                                style={'width': '80px'}
+                                size='sm'
                             )
                         ], size='sm')
                     ], width=2),
                     
                     dbc.Col([
                         dbc.InputGroup([
-                            dbc.InputGroupText("X2", style={'fontSize': '0.8rem'}),
+                            dbc.InputGroupText("X2"),
                             dbc.Input(
-                                id={'type': 'box-x2', 'field': field_name},
+                                id={'type': 'box-x2-markup', 'field': field_name},
                                 type='number',
                                 value=box[2] if box else 100,
-                                size='sm',
-                                style={'width': '80px'}
+                                size='sm'
                             )
                         ], size='sm')
                     ], width=2),
                     
                     dbc.Col([
                         dbc.InputGroup([
-                            dbc.InputGroupText("Y2", style={'fontSize': '0.8rem'}),
+                            dbc.InputGroupText("Y2"),
                             dbc.Input(
-                                id={'type': 'box-y2', 'field': field_name},
+                                id={'type': 'box-y2-markup', 'field': field_name},
                                 type='number',
                                 value=box[3] if box else 100,
-                                size='sm',
-                                style={'width': '80px'}
+                                size='sm'
                             )
                         ], size='sm')
                     ], width=2),
@@ -267,7 +250,7 @@ class MarkupTool:
                     dbc.Col([
                         dbc.Button(
                             html.I(className="fas fa-trash"),
-                            id={'type': 'delete-field', 'field': field_name},
+                            id={'type': 'delete-field-markup', 'field': field_name},
                             color="danger",
                             size="sm",
                             outline=True
@@ -312,7 +295,7 @@ class MarkupTool:
         return img_with_boxes
     
     def export_to_config_format(self, config_data: Dict) -> str:
-        """Экспорт в формат конфигурации для config.py"""
+        """Экспорт в формат конфигурации Python"""
         config_name = config_data.get('name', 'CustomConfig')
         org = config_data.get('organization', 'CUSTOM')
         doc_type = config_data.get('document_type', 'custom')
@@ -320,8 +303,7 @@ class MarkupTool:
         
         code = f'''
 # Конфигурация: {config_name}
-# Автоматически сгенерировано инструментом разметки
-# Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+# Автоматически сгенерировано: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 '{org}_{doc_type.upper()}': DocumentConfig(
     name='{config_name}',
@@ -334,10 +316,10 @@ class MarkupTool:
             code += f'''        {{'name': '{field['name']}', 'box': {field['box']}}},
 '''
         
-        code += '''    ],
+        code += f'''    ],
     patterns={{
-        'series_and_number': OneTParsers.parse_series_number,
-        'registration_number': lambda x: (x.strip(), False),
+        'series_and_number': {org}Parsers.parse_series_number,
+        'registration_number': {org}Parsers.parse_reg_number,
         'full_name': lambda x: (x.strip(), len(x.strip()) < 5),
         'issue_date': CommonParsers.parse_date_standard
     }},
@@ -349,17 +331,18 @@ class MarkupTool:
 
 
 def setup_markup_callbacks(app, markup_tool: MarkupTool):
-    """Настройка всех callbacks для инструмента разметки"""
+    """Настройка callbacks для инструмента разметки"""
     
+    # Callback: Загрузка изображения
     @app.callback(
         [Output('markup-image-panel', 'children'),
-         Output('markup-image-store', 'data')],
-        [Input('markup-upload', 'contents')],
-        [State('markup-upload', 'filename')]
+         Output('markup-image-data-store', 'data')],
+        [Input('markup-upload-sample', 'contents')],
+        [State('markup-upload-sample', 'filename')]
     )
     def load_markup_image(contents, filename):
         if not contents:
-            return html.P("", className="text-muted"), None
+            return "", None
         
         try:
             from core.image_processor import AdvancedImageProcessor
@@ -371,7 +354,7 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             images = processor.convert_pdf_from_bytes(decoded)
             
             if not images:
-                return html.P("Ошибка загрузки PDF", className="text-danger"), None
+                return dbc.Alert("Ошибка загрузки PDF", color="danger"), None
             
             img = images[0]
             
@@ -380,20 +363,15 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             img_b64 = base64.b64encode(buffer.getvalue()).decode()
             
             panel = dbc.Card([
-                dbc.CardHeader(f"Образец: {filename} (размер: {img.size[0]}×{img.size[1]}px)"),
+                dbc.CardHeader(f"Образец: {filename} ({img.size[0]}×{img.size[1]}px)"),
                 dbc.CardBody([
                     html.Img(
-                        id='markup-main-image',
+                        id='markup-main-image-display',
                         src=f"data:image/png;base64,{img_b64}",
-                        style={
-                            'width': '100%',
-                            'height': 'auto',
-                            'border': '2px solid #007bff',
-                            'cursor': 'crosshair'
-                        }
+                        style={'width': '100%', 'height': 'auto', 'border': '2px solid #007bff'}
                     ),
                     html.Small(
-                        "Координаты указываются для финального размера изображения (после DPI=300 и resize до 1200px).",
+                        "Координаты указываются для финального размера после обработки (DPI=300, resize до 1200px)",
                         className="text-muted d-block mt-2"
                     )
                 ])
@@ -403,13 +381,14 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             
         except Exception as e:
             logger.error(f"Ошибка загрузки: {e}")
-            return html.P(f"Ошибка: {str(e)}", className="text-danger"), None
+            return dbc.Alert(f"Ошибка: {str(e)}", color="danger"), None
     
+    # Callback: Инициализация полей
     @app.callback(
         [Output('markup-fields-list', 'children'),
-         Output('markup-fields-store', 'data')],
-        [Input('markup-base-config', 'value')],
-        [State('markup-fields-store', 'data')]
+         Output('markup-fields-data-store', 'data')],
+        [Input('markup-base-config-select', 'value')],
+        [State('markup-fields-data-store', 'data')]
     )
     def initialize_fields(base_config, current_fields):
         if base_config == 'empty':
@@ -433,7 +412,7 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
                         'box': field_config.get('box')
                     })
             except Exception as e:
-                logger.error(f"Ошибка загрузки базовой конфигурации: {e}")
+                logger.error(f"Ошибка загрузки конфигурации: {e}")
                 fields = []
         
         field_editors = []
@@ -448,16 +427,17 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
         
         return field_editors, fields
     
+    # Callback: Предпросмотр конфигурации
     @app.callback(
-        Output('markup-preview-panel', 'children'),
-        [Input('preview-config-btn', 'n_clicks')],
-        [State('markup-image-store', 'data'),
-         State({'type': 'box-x1', 'field': ALL}, 'value'),
-         State({'type': 'box-y1', 'field': ALL}, 'value'),
-         State({'type': 'box-x2', 'field': ALL}, 'value'),
-         State({'type': 'box-y2', 'field': ALL}, 'value'),
-         State({'type': 'box-x1', 'field': ALL}, 'id'),
-         State('markup-fields-store', 'data')]
+        Output('markup-preview-section', 'children'),
+        [Input('preview-markup-btn', 'n_clicks')],
+        [State('markup-image-data-store', 'data'),
+         State({'type': 'box-x1-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-y1-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-x2-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-y2-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-x1-markup', 'field': ALL}, 'id'),
+         State('markup-fields-data-store', 'data')]
     )
     def preview_configuration(n_clicks, img_b64, x1_values, y1_values, x2_values, y2_values, field_ids, fields):
         if not n_clicks or not img_b64:
@@ -498,34 +478,35 @@ def setup_markup_callbacks(app, markup_tool: MarkupTool):
             logger.error(f"Ошибка предпросмотра: {e}")
             return dbc.Alert(f"Ошибка: {str(e)}", color="danger")
     
+    # Callback: Экспорт конфигурации
     @app.callback(
-        [Output('export-modal', 'is_open'),
-         Output('config-json-display', 'children')],
-        [Input('export-config-btn', 'n_clicks'),
-         Input('close-export-modal', 'n_clicks')],
+        [Output('export-modal-markup', 'is_open'),
+         Output('config-python-code', 'children')],
+        [Input('export-markup-btn', 'n_clicks'),
+         Input('close-modal-markup', 'n_clicks')],
         [State('markup-config-name', 'value'),
          State('markup-org-name', 'value'),
          State('markup-doc-type', 'value'),
-         State({'type': 'box-x1', 'field': ALL}, 'value'),
-         State({'type': 'box-y1', 'field': ALL}, 'value'),
-         State({'type': 'box-x2', 'field': ALL}, 'value'),
-         State({'type': 'box-y2', 'field': ALL}, 'value'),
-         State({'type': 'box-x1', 'field': ALL}, 'id'),
-         State('markup-fields-store', 'data'),
-         State('export-modal', 'is_open')]
+         State({'type': 'box-x1-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-y1-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-x2-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-y2-markup', 'field': ALL}, 'value'),
+         State({'type': 'box-x1-markup', 'field': ALL}, 'id'),
+         State('markup-fields-data-store', 'data'),
+         State('export-modal-markup', 'is_open')]
     )
     def export_configuration(n_export, n_close, config_name, org_name, doc_type,
                            x1_values, y1_values, x2_values, y2_values, field_ids, fields, is_open):
-        ctx = callback_context
+        ctx = dash.callback_context
         if not ctx.triggered:
             return False, ""
         
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
         
-        if button_id == 'close-export-modal':
+        if button_id == 'close-modal-markup':
             return False, ""
         
-        if button_id == 'export-config-btn':
+        if button_id == 'export-markup-btn':
             config_data = {
                 'name': config_name or 'Без названия',
                 'organization': org_name or 'CUSTOM',
