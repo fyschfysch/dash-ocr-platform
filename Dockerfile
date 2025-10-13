@@ -1,5 +1,5 @@
 # Используем официальный Python образ
-FROM python:3.9-slim
+FROM python:3.9-slim-bullseye
 
 # Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
@@ -35,11 +35,11 @@ RUN useradd --create-home --shell /bin/bash ocr_user \
 USER ocr_user
 
 # Открываем порт
-EXPOSE 8050
+EXPOSE 9050
 
 # Устанавливаем переменные окружения
 ENV PYTHONPATH=/app
 ENV TESSERACT_CMD=/usr/bin/tesseract
 
 # Команда запуска
-CMD ["python", "app.py", "--host", "0.0.0.0", "--port", "8050"]
+CMD ["python", "app.py", "--host", "0.0.0.0", "--port", "9050"]
