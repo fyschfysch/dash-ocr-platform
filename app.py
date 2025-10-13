@@ -272,7 +272,7 @@ def main():
         logger.info(f"Режим отладки: {'включен' if args.debug else 'выключен'}")
         logger.info(f"Логи: {LOG_FILE}")
         
-        app.run_server(debug=args.debug, host=args.host, port=args.port)
+        app.run(debug=args.debug, host=args.host, port=args.port)
         
     except KeyboardInterrupt:
         logger.info("Приложение остановлено пользователем")
